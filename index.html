@@ -3,24 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>대기질 먼지측정 반자동식 계산기 (PWA)</title>
+  <title>K-Factor 계산기 (PWA)</title>
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#2563EB">
   <link rel="stylesheet" href="./styles.css">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="먼지측정계산기">
+  <meta name="apple-mobile-web-app-title" content="K-Factor계산기">
 </head>
 <body>
 
   <!-- Header -->
   <header class="header">
     <div class="header-title">
-      <h1>대기질 먼지측정 반자동식 PWA</h1>
-      <p>환경부 ES 01301.1e 표준 계산기 v3.0</p>
+      <h1>K-Factor 계산기 v3.0</h1>
+      <p>대기질 먼지측정 반자동식 - ES 01301.1e | 제작자 (김태우)</p>
     </div>
     <div class="header-actions">
-      <button class="btn-icon" id="openOptionsBtn">⚙️ 옵션</button>
+      <button class="btn-icon" id="openLoadModalBtn" title="저장된 설비기록 불러오기">📂 기록</button>
+      <button class="btn-icon" id="openOptionsBtn" title="상수 설정">⚙️ 설정</button>
     </div>
   </header>
 
@@ -32,8 +33,8 @@
 
   <!-- Navigation Tabs -->
   <nav class="tabs">
-    <div class="tab active" data-target="tabKFactor">1. K-Factor & 등속흡인</div>
-    <div class="tab" data-target="tabMoisture">2. 수분량 & 포화수분</div>
+    <div class="tab active" data-target="tabKFactor">1. K-Factor 및 등속흡인</div>
+    <div class="tab" data-target="tabMoisture">2. 수분 및 가스채취량</div>
     <div class="tab" data-target="tabPoints">3. 측정점 선정</div>
   </nav>
 
@@ -48,7 +49,9 @@
         <div class="result-hero-label">오리피스 압력차 (ΔH)</div>
         <div class="result-hero-value" id="resDeltaH">0.0 mmH2O</div>
         <div class="result-hero-sub" id="resDeltaHSub">환산 → 0.0 inH2O (0.0 mmHg)</div>
-        <div class="result-hero-sub" style="margin-top:0.5rem;">K-Factor (Kf): <b id="resKf">0.00</b></div>
+        <div class="result-hero-sub" style="margin-top:0.4rem; font-size: 0.95rem;">K-Factor (Kf): <b id="resKf">0.00</b></div>
+        
+        <button id="openSaveModalBtn" class="btn-save-record">💾 설비 측정기록 저장</button>
       </div>
 
       <div class="grid-2" style="margin-bottom: 1rem;">
@@ -64,105 +67,137 @@
         </div>
       </div>
 
-      <!-- Inputs: 배출가스 성분 -->
+      <!-- Section 1: Gas composition -->
       <div class="section-card">
-        <div class="section-title">🧪 배출가스 성분 및 수분량</div>
+        <div class="section-title">1. 가스 성분 및 공기 밀도 입력 변수</div>
+        
+        <div class="input-sublabel">산소 농도 O₂ (%) [3회 측정]: 평균 <b id="o2AvgText">0.0%</b></div>
         <div class="grid-3">
-          <div class="input-group"><label>O₂ 1차 (%)</label><div class="input-wrapper"><input type="number" id="o2_1" value="12.0" step="0.1"></div></div>
-          <div class="input-group"><label>O₂ 2차 (%)</label><div class="input-wrapper"><input type="number" id="o2_2" value="12.0" step="0.1"></div></div>
-          <div class="input-group"><label>O₂ 3차 (%)</label><div class="input-wrapper"><input type="number" id="o2_3" value="12.0" step="0.1"></div></div>
+          <div class="input-group"><label>O₂ 1차</label><div class="input-wrapper"><input type="number" id="o2_1" value="20.9" step="0.1"></div></div>
+          <div class="input-group"><label>O₂ 2차</label><div class="input-wrapper"><input type="number" id="o2_2" value="20.9" step="0.1"></div></div>
+          <div class="input-group"><label>O₂ 3차</label><div class="input-wrapper"><input type="number" id="o2_3" value="20.9" step="0.1"></div></div>
         </div>
+
+        <div class="input-sublabel">이산화탄소 CO₂ (%) [3회 측정]: 평균 <b id="co2AvgText">0.0%</b></div>
         <div class="grid-3">
-          <div class="input-group"><label>CO₂ 1차 (%)</label><div class="input-wrapper"><input type="number" id="co2_1" value="8.0" step="0.1"></div></div>
-          <div class="input-group"><label>CO₂ 2차 (%)</label><div class="input-wrapper"><input type="number" id="co2_2" value="8.0" step="0.1"></div></div>
-          <div class="input-group"><label>CO₂ 3차 (%)</label><div class="input-wrapper"><input type="number" id="co2_3" value="8.0" step="0.1"></div></div>
+          <div class="input-group"><label>CO₂ 1차</label><div class="input-wrapper"><input type="number" id="co2_1" value="0.0" step="0.1"></div></div>
+          <div class="input-group"><label>CO₂ 2차</label><div class="input-wrapper"><input type="number" id="co2_2" value="0.0" step="0.1"></div></div>
+          <div class="input-group"><label>CO₂ 3차</label><div class="input-wrapper"><input type="number" id="co2_3" value="0.0" step="0.1"></div></div>
         </div>
-        <div class="input-group">
-          <label>수분량 Xw (%)</label>
-          <div class="input-wrapper"><input type="number" id="xw" value="10.0" step="0.1"><span class="unit">%</span></div>
+
+        <div class="grid-2">
+          <div class="input-group">
+            <label>산소보정 농도 O₂s (%)</label>
+            <div class="input-wrapper"><input type="number" id="os" value="0.0" step="0.1"><span class="unit">%</span></div>
+          </div>
+          <div class="input-group">
+            <label>수분량 Xw (%)</label>
+            <div class="input-wrapper"><input type="number" id="xw" value="1.2" step="0.1"><span class="unit">%</span></div>
+          </div>
         </div>
       </div>
 
-      <!-- Inputs: 온도 & 압력 -->
+      <!-- Section 2: Temperature & Pressure -->
       <div class="section-card">
-        <div class="section-title">🌡️ 배출가스 온도 및 압력</div>
+        <div class="section-title">2. 배출가스 온도 및 압력</div>
         <div class="grid-2">
           <div class="input-group">
             <label>배기가스 온도 (Ts)</label>
             <div class="input-wrapper">
-              <input type="number" id="tsVal" value="120.0" step="1">
+              <input type="number" id="tsVal" value="50.0" step="0.1">
               <select id="tsUnit"><option value="C" selected>°C</option><option value="F">°F</option></select>
             </div>
           </div>
           <div class="input-group">
-            <label>가스메터 온도 (Tm)</label>
+            <label>대기압 (Pa)</label>
             <div class="input-wrapper">
-              <input type="number" id="tmVal" value="25.0" step="1">
-              <select id="tmUnit"><option value="C" selected>°C</option><option value="F">°F</option></select>
+              <input type="number" id="paVal" value="1013.0" step="0.1">
+              <select id="paUnit"><option value="HPA" selected>hPa</option><option value="MMHG">mmHg</option></select>
             </div>
           </div>
         </div>
         <div class="grid-2">
           <div class="input-group">
-            <label>대기압 (Pa)</label>
+            <label>정압 (Ps)</label>
             <div class="input-wrapper">
-              <input type="number" id="paVal" value="760.0" step="0.1">
-              <select id="paUnit"><option value="MMHG" selected>mmHg</option><option value="HPA">hPa</option></select>
+              <input type="number" id="psVal" value="-0.5" step="0.1">
+              <select id="psUnit"><option value="INH2O" selected>inH₂O</option><option value="MMHG">mmHg</option></select>
             </div>
           </div>
           <div class="input-group">
-            <label>정압 (Ps)</label>
+            <label>피토관 동압 (h)</label>
             <div class="input-wrapper">
-              <input type="number" id="psVal" value="-10.0" step="0.1">
-              <select id="psUnit"><option value="INH2O" selected>inH₂O</option><option value="MMHG">mmHg</option></select>
+              <input type="number" id="hVal" value="0.5" step="0.01">
+              <select id="hUnit"><option value="INH2O" selected>inH₂O</option><option value="MMH2O">mmH₂O</option></select>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Inputs: 동압 & 노즐 -->
+      <!-- Section 3: Duct & Nozzle -->
       <div class="section-card">
-        <div class="section-title">📐 피토관 동압 및 채취 조건</div>
+        <div class="section-title">3. 덕트 및 피토관/노즐 설정</div>
+        <div class="input-group">
+          <label>덕트 형태 및 단면 크기</label>
+          <div class="grid-3">
+            <select id="ductType">
+              <option value="CIRCULAR" selected>원형</option>
+              <option value="RECTANGULAR">사각</option>
+            </select>
+            <div class="input-wrapper" id="wrapDs"><input type="number" id="ds" value="1.0" step="0.01" placeholder="직경"><span class="unit">m</span></div>
+            <div class="input-wrapper hidden" id="wrapDs1"><input type="number" id="ds1" value="1.0" step="0.01" placeholder="가로"><span class="unit">m</span></div>
+            <div class="input-wrapper hidden" id="wrapDs2"><input type="number" id="ds2" value="1.0" step="0.01" placeholder="세로"><span class="unit">m</span></div>
+          </div>
+        </div>
+
         <div class="grid-2">
           <div class="input-group">
-            <label>피토관 동압 (h)</label>
+            <label>가스메터 온도 (Tm)</label>
             <div class="input-wrapper">
-              <input type="number" id="hVal" value="10.0" step="0.1">
-              <select id="hUnit"><option value="MMH2O" selected>mmH₂O</option><option value="INH2O">inH₂O</option></select>
+              <input type="number" id="tmVal" value="25.0" step="0.1">
+              <select id="tmUnit"><option value="C" selected>°C</option><option value="F">°F</option></select>
             </div>
           </div>
           <div class="input-group">
             <label>노즐 구경 (Dn)</label>
-            <div class="input-wrapper"><input type="number" id="dn" value="8.0" step="0.1"><span class="unit">mm</span></div>
-          </div>
-        </div>
-        <div class="grid-2">
-          <div class="input-group">
-            <label>채취 시간 (Time)</label>
-            <div class="input-wrapper"><input type="number" id="time" value="30.0" step="1"><span class="unit">분</span></div>
-          </div>
-          <div class="input-group">
-            <label>실제 흡인 가스량 (Vm)</label>
             <div class="input-wrapper">
-              <input type="number" id="actualVmVal" value="450.0" step="1">
-              <select id="actualVmUnit"><option value="LITER" selected>L</option><option value="FT3">ft³</option></select>
+              <input type="number" id="dn" value="6.35" step="0.01">
+              <select id="nozzleQuickSelect" title="빠른 노즐 선택">
+                <option value="">선택</option>
+                <option value="4.76">4.76 mm</option>
+                <option value="6.35" selected>6.35 mm</option>
+                <option value="7.94">7.94 mm</option>
+                <option value="9.53">9.53 mm</option>
+                <option value="12.70">12.70 mm</option>
+              </select>
             </div>
           </div>
         </div>
+
         <div class="input-group">
-          <label>덕트 형태 및 크기</label>
-          <div class="grid-3">
-            <select id="ductType"><option value="CIRCULAR" selected>원형</option><option value="RECTANGULAR">사각</option></select>
-            <input type="number" id="ds" value="1.0" placeholder="직경 (m)" step="0.1">
-            <input type="number" id="ds1" value="1.0" placeholder="가로 (m)" step="0.1" style="display:none;">
-            <input type="number" id="ds2" value="1.0" placeholder="세로 (m)" step="0.1" style="display:none;">
+          <label>채취 시간 (Nominal Time)</label>
+          <div class="input-wrapper"><input type="number" id="time" value="30.0" step="1"><span class="unit">분</span></div>
+        </div>
+      </div>
+
+      <!-- Section 4: Actual Vm & Isokinetic Verification -->
+      <div class="section-card">
+        <div class="section-title">4. 등속흡인율 검증 (실제 측정 가스량)</div>
+        <div class="input-group">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.3rem;">
+            <label style="margin:0;">목표 흡인량 (Vm)</label>
+            <button id="btnResetActualVm" class="btn-small-link">🔄 계산값으로 리셋</button>
+          </div>
+          <div class="input-wrapper">
+            <input type="number" id="actualVmVal" value="0.0" step="0.1">
+            <select id="actualVmUnit"><option value="LITER" selected>L</option><option value="FT3">ft³</option></select>
           </div>
         </div>
       </div>
 
     </div>
 
-    <!-- TAB 2: MOISTURE & SATURATION -->
+    <!-- TAB 2: MOISTURE & GAS -->
     <div id="tabMoisture" class="tab-content hidden">
       <div class="section-card">
         <div class="section-title">💧 포화수분량 및 보정 수분량 계산</div>
@@ -170,36 +205,54 @@
           <div class="input-group">
             <label>가스메터 흡인량 (G-Vm)</label>
             <div class="input-wrapper">
-              <input type="number" id="gvmVal" value="30.0" step="1">
+              <input type="number" id="gvmVal" value="10.0" step="0.1">
               <select id="gvmUnit"><option value="LITER" selected>L</option><option value="M3">m³</option></select>
             </div>
           </div>
           <div class="input-group">
             <label>가스메터 온도 (G-Tm)</label>
-            <div class="input-wrapper"><input type="number" id="gtmVal" value="25.0" step="1"><span class="unit">°C</span></div>
+            <div class="input-wrapper">
+              <input type="number" id="gtmVal" value="25.0" step="0.1">
+              <select id="gtmUnit"><option value="C" selected>°C</option><option value="F">°F</option></select>
+            </div>
           </div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label>대기압 (Pa)</label><div class="input-wrapper"><input type="number" id="mPaVal" value="760.0" step="1"><span class="unit">mmHg</span></div></div>
-          <div class="input-group"><label>게이지압 (Pm)</label><div class="input-wrapper"><input type="number" id="mPmVal" value="0.0" step="1"><span class="unit">mmHg</span></div></div>
+          <div class="input-group">
+            <label>대기압 (Pa)</label>
+            <div class="input-wrapper"><input type="number" id="mPaVal" value="760.0" step="0.1"><span class="unit">mmHg</span></div>
+          </div>
+          <div class="input-group">
+            <label>게이지압 (Pm)</label>
+            <div class="input-wrapper"><input type="number" id="mPmVal" value="0.0" step="0.1"><span class="unit">mmHg</span></div>
+          </div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label>포집 수분량 (ma)</label><div class="input-wrapper"><input type="number" id="maVal" value="15.0" step="0.1"><span class="unit">g</span></div></div>
-          <div class="input-group"><label>배기가스 온도 (Ts)</label><div class="input-wrapper"><input type="number" id="mTsVal" value="80.0" step="1"><span class="unit">°C</span></div></div>
+          <div class="input-group">
+            <label>포집 수분량 (ma)</label>
+            <div class="input-wrapper"><input type="number" id="maVal" value="15.0" step="0.1"><span class="unit">g</span></div>
+          </div>
+          <div class="input-group">
+            <label>배기가스 온도 (Ts)</label>
+            <div class="input-wrapper"><input type="number" id="mTsVal" value="50.0" step="0.1"><span class="unit">°C</span></div>
+          </div>
         </div>
-        <div class="input-group"><label>배기가스 정압 (Ps)</label><div class="input-wrapper"><input type="number" id="mPsVal" value="-10.0" step="1"><span class="unit">mmHg</span></div></div>
+        <div class="input-group">
+          <label>배기가스 정압 (Ps)</label>
+          <div class="input-wrapper"><input type="number" id="mPsVal" value="-0.5" step="0.1"><span class="unit">mmHg</span></div>
+        </div>
       </div>
 
       <div class="grid-2">
         <div class="result-grid-card">
           <div class="title">포화수분량 (Xw2)</div>
           <div class="val" id="resXw2">0.0%</div>
-          <div class="sub">포화 수증기압: <span id="resPv">0</span></div>
+          <div class="sub">포화 수증기압: <span id="resPv">0</span> mmHg</div>
         </div>
         <div class="result-grid-card">
           <div class="title">역산 수분량 (Xw1)</div>
           <div class="val" id="resXw1">0.0%</div>
-          <div class="sub">건조가스량: <span id="resVmStd">0</span></div>
+          <div class="sub">건조가스량: <span id="resVmStd">0</span> L</div>
         </div>
       </div>
     </div>
@@ -218,7 +271,7 @@
           </div>
         </div>
         <div class="grid-2">
-          <div class="input-group"><label>직경 또는 가로 (m)</label><div class="input-wrapper"><input type="number" id="ptVal1" value="1.2" step="0.1"><span class="unit">m</span></div></div>
+          <div class="input-group"><label>직경 또는 가로 (m)</label><div class="input-wrapper"><input type="number" id="ptVal1" value="1.0" step="0.1"><span class="unit">m</span></div></div>
           <div class="input-group"><label>세로 (m, 사각 전용)</label><div class="input-wrapper"><input type="number" id="ptVal2" value="1.0" step="0.1"><span class="unit">m</span></div></div>
         </div>
       </div>
@@ -227,17 +280,91 @@
         <div class="result-hero-label">총 측정점 수</div>
         <div class="result-hero-value" id="resPtTotal">4개소</div>
         <div class="result-hero-sub" id="resPtDiv">1분할 (2지질선 × 2점)</div>
-        <div class="result-hero-sub" id="resPtDetail" style="margin-top:0.5rem; font-size:0.8rem;"></div>
+        <div class="result-hero-sub" id="resPtDetail" style="margin-top:0.5rem; font-size:0.85rem;"></div>
       </div>
     </div>
 
   </main>
 
-  <!-- Options Modal -->
+  <!-- MODAL 1: Save Record Modal -->
+  <div id="saveRecordModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">💾 설비 측정기록 저장</div>
+        <button id="closeSaveModalBtn" class="btn-close">✕</button>
+      </div>
+      <div class="input-group">
+        <label>생성 일시</label>
+        <div id="saveModalCreatedAt" style="font-size:0.85rem; color:var(--text-muted); font-weight:600;">-</div>
+      </div>
+      <div class="input-group">
+        <label>설비명 (파일명)</label>
+        <div class="input-wrapper"><input type="text" id="facilityNameInput" placeholder="예: 1호기 소각로 굴뚝"></div>
+      </div>
+      <div class="section-card" style="margin-top:1rem; background:var(--surface);">
+        <div class="section-title" style="font-size:0.85rem;">현재 측정/계산 요약</div>
+        <div id="saveSummaryBox" style="font-size:0.8rem; line-height:1.5; color:var(--text-main);"></div>
+      </div>
+      <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+        <button id="confirmSaveRecordBtn" class="btn-primary">저장하기</button>
+        <button id="cancelSaveRecordBtn" class="btn-secondary">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Load Records Modal -->
+  <div id="loadRecordsModal" class="modal-overlay hidden">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <div class="modal-title">📂 저장된 설비 기록</div>
+        <button id="closeLoadModalBtn" class="btn-close">✕</button>
+      </div>
+
+      <!-- Search Tabs inside Modal -->
+      <div class="modal-tabs">
+        <button class="modal-tab active" id="btnSearchNameTab">🔍 설비명 검색</button>
+        <button class="modal-tab" id="btnSearchDateTab">📅 날짜 기간 검색</button>
+      </div>
+
+      <!-- Search Input Area -->
+      <div id="searchNameArea" class="search-area">
+        <div class="input-wrapper">
+          <input type="text" id="searchQueryInput" placeholder="설비명 검색...">
+        </div>
+      </div>
+
+      <div id="searchDateArea" class="search-area hidden">
+        <div class="date-preset-buttons">
+          <button class="btn-preset active" data-preset="all">전체</button>
+          <button class="btn-preset" data-preset="today">오늘</button>
+          <button class="btn-preset" data-preset="7days">7일</button>
+          <button class="btn-preset" data-preset="30days">30일</button>
+        </div>
+        <div class="grid-2" style="margin-top:0.5rem;">
+          <input type="date" id="startDateInput" class="date-picker-input">
+          <input type="date" id="endDateInput" class="date-picker-input">
+        </div>
+      </div>
+
+      <!-- Export / Import Actions -->
+      <div class="record-actions-bar">
+        <button id="btnExportExcel" class="btn-small-action">📊 엑셀/CSV 내보내기</button>
+        <button id="btnImportCsv" class="btn-small-action">📥 CSV 불러오기</button>
+        <input type="file" id="csvFileInput" accept=".csv,.json" class="hidden">
+      </div>
+
+      <!-- Records List Box -->
+      <div id="recordsListContainer" class="records-list-container">
+        <div class="empty-state">저장된 기록이 없습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Options Modal -->
   <div id="optionsModal" class="modal-overlay hidden">
     <div class="modal-content">
       <div class="modal-header">
-        <div class="modal-title">⚙️ 계산기 상수 설정</div>
+        <div class="modal-title">⚙️ 계산기 상수 및 고정변수 설정</div>
         <button id="closeOptionsBtn" class="btn-close">✕</button>
       </div>
       <div class="input-group">
@@ -253,7 +380,7 @@
         <div class="input-wrapper"><input type="number" id="optDeltaHAt" step="0.001"></div>
       </div>
       <div class="input-group">
-        <label>사용 가능 노즐 목록 (mm, 쉼표 구분)</label>
+        <label>빠른 노즐 목록 (mm, 쉼표 구분)</label>
         <div class="input-wrapper"><input type="text" id="optNozzles"></div>
       </div>
       <button id="saveOptionsBtn" class="btn-primary">저장하기</button>
