@@ -1,724 +1,814 @@
-// Excel Round implementation matching HALF_UP behavior
+/**
+ * K-Factor Calculator & Air Quality Dust Measurement PWA Engine
+ * Environmental ES 01301.1e Standard Compliant
+ */
+
+// Math Helper matching Excel ROUND (HALF_UP)
 function excelRound(value, decimals) {
-  if (isNaN(value) || !isFinite(value)) return 0.0;
+  if (value === null || value === undefined || isNaN(value) || !isFinite(value)) return 0;
   const factor = Math.pow(10, decimals);
   return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
-// Global Options & LocalStorage Repository
-const DEFAULT_OPTIONS = {
-  yd: 1.0,
-  cp: 0.84,
-  deltaHAt: 1.760,
-  nozzles: [4.76, 6.35, 7.94, 9.53, 12.7]
+// App State
+const state = {
+  // Gas & Flue Gas Inputs
+  o2_1: 20.9, o2_2: 20.9, o2_3: 20.9,
+  co2_1: 0.0, co2_2: 0.0, co2_3: 0.0,
+  os: 0.0,
+  xw: 1.2,
+
+  // Temp, Pressure & Duct
+  tsVal: 50.0, tsUnit: 'C',
+  paVal: 1013.0, paUnit: 'HPA',
+  psVal: -0.5, psUnit: 'INH2O',
+  hVal: 0.5, hUnit: 'INH2O',
+  tmVal: 25.0, tmUnit: 'C',
+  ductType: 'CIRCULAR', // 'CIRCULAR' or 'RECTANGULAR'
+  ds: 1.0, ds1: 1.0, ds2: 1.0,
+
+  // Calculation Parameters
+  dn: 6.35,
+  time: 30.0,
+  actualVmVal: 0.0, actualVmUnit: 'LITER',
+  isActualVmManuallyEdited: false,
+
+  // Tab 2 inputs
+  gvmVal: 10.0, gvmUnit: 'LITER',
+  gtmVal: 25.0, gtmUnit: 'C',
+  mPaVal: 760.0,
+  mPmVal: 0.0,
+  maVal: 15.0,
+  mTsVal: 50.0,
+  mPsVal: -0.5,
+
+  // Options Constants
+  options: {
+    yd: 1.0,
+    cp: 0.84,
+    deltaHAt: 1.760,
+    nozzleList: [4.76, 6.35, 7.94, 9.53, 12.7]
+  },
+
+  // Calculated Results
+  results: null
 };
 
-let options = JSON.parse(localStorage.getItem('kfactor_options')) || DEFAULT_OPTIONS;
-let isActualVmManuallyEdited = false;
-let currentEditingRecordId = null;
+// LocalStorage Keys
+const STORAGE_OPTIONS_KEY = 'kfactor_calc_options_v3';
+const STORAGE_RECORDS_KEY = 'kfactor_calc_records_v3';
 
-// Helper: Save Options
-function saveOptions() {
-  localStorage.setItem('kfactor_options', JSON.stringify(options));
-}
-
-// Records Repository (Local Storage)
-function getAllRecords() {
-  return JSON.parse(localStorage.getItem('kfactor_saved_records')) || [];
-}
-
-function saveRecordItem(record) {
-  let records = getAllRecords();
-  const index = records.findIndex(r => r.id === record.id);
-  if (index >= 0) {
-    records[index] = record;
-  } else {
-    records.unshift(record);
+// Load stored options & records
+function loadStoredData() {
+  try {
+    const savedOpt = localStorage.getItem(STORAGE_OPTIONS_KEY);
+    if (savedOpt) {
+      state.options = JSON.parse(savedOpt);
+    }
+  } catch (e) {
+    console.error('Failed to load saved options', e);
   }
-  localStorage.setItem('kfactor_saved_records', JSON.stringify(records));
 }
 
-function deleteRecordItem(id) {
-  let records = getAllRecords().filter(r => r.id !== id);
-  localStorage.setItem('kfactor_saved_records', JSON.stringify(records));
+function saveOptionsData() {
+  localStorage.setItem(STORAGE_OPTIONS_KEY, JSON.stringify(state.options));
 }
 
-// Formatting Helper
-function getNowFormatted() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+function getStoredRecords() {
+  try {
+    const saved = localStorage.getItem(STORAGE_RECORDS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    return [];
+  }
 }
 
-// Main Calculation Engine
-function calculateAll() {
-  // 1. Gas Inputs
-  const o2_1 = parseFloat(document.getElementById('o2_1').value) || 0;
-  const o2_2 = parseFloat(document.getElementById('o2_2').value) || 0;
-  const o2_3 = parseFloat(document.getElementById('o2_3').value) || 0;
-  const o2Avg = excelRound((o2_1 + o2_2 + o2_3) / 3.0, 1);
-  document.getElementById('o2AvgText').innerText = `${o2Avg}%`;
+function saveRecordToStorage(record) {
+  const records = getStoredRecords();
+  records.unshift(record); // add to top
+  localStorage.setItem(STORAGE_RECORDS_KEY, JSON.stringify(records));
+}
 
-  const co2_1 = parseFloat(document.getElementById('co2_1').value) || 0;
-  const co2_2 = parseFloat(document.getElementById('co2_2').value) || 0;
-  const co2_3 = parseFloat(document.getElementById('co2_3').value) || 0;
-  const co2Avg = excelRound((co2_1 + co2_2 + co2_3) / 3.0, 1);
-  document.getElementById('co2AvgText').innerText = `${co2Avg}%`;
+function deleteRecordFromStorage(id) {
+  let records = getStoredRecords();
+  records = records.filter(r => r.id !== id);
+  localStorage.setItem(STORAGE_RECORDS_KEY, JSON.stringify(records));
+}
 
-  const os = parseFloat(document.getElementById('os').value) || 0;
-  const xw = parseFloat(document.getElementById('xw').value) || 0;
+// Core Calculation Engine
+function runCalculationEngine() {
+  // 1. Unit conversions
+  const tsInCExact = state.tsUnit === 'C' ? state.tsVal : (state.tsVal - 32.0) / 1.8;
+  const tsInFExact = state.tsUnit === 'F' ? state.tsVal : (state.tsVal * 1.8 + 32.0);
+  const tsInC = excelRound(tsInCExact, 1);
+  const tsInF = excelRound(tsInFExact, 1);
+  const tsInFRoundedInt = excelRound(tsInFExact, 0);
 
-  // 2. Temp & Pressure Inputs
-  const tsVal = parseFloat(document.getElementById('tsVal').value) || 0;
-  const tsUnit = document.getElementById('tsUnit').value;
+  const tmInCExact = state.tmUnit === 'C' ? state.tmVal : (state.tmVal - 32.0) / 1.8;
+  const tmInFExact = state.tmUnit === 'F' ? state.tmVal : (state.tmVal * 1.8 + 32.0);
+  const tmInC = excelRound(tmInCExact, 1);
+  const tmInF = excelRound(tmInFExact, 1);
+  const tmInFRoundedInt = excelRound(tmInFExact, 0);
 
-  const paVal = parseFloat(document.getElementById('paVal').value) || 0;
-  const paUnit = document.getElementById('paUnit').value;
+  const paInhPa = state.paUnit === 'HPA' ? excelRound(state.paVal, 1) : excelRound(state.paVal * 1013.0 / 760.0, 1);
+  const paInmmHgExact = state.paUnit === 'MMHG' ? state.paVal : (state.paVal * 760.0 / 1013.0);
+  const paInmmHg = excelRound(paInmmHgExact, 2);
 
-  const psVal = parseFloat(document.getElementById('psVal').value) || 0;
-  const psUnit = document.getElementById('psUnit').value;
+  const psInInH2O = state.psUnit === 'INH2O' ? excelRound(state.psVal, 1) : excelRound(state.psVal * 13.6 / 25.4, 1);
+  const psInmmHgExact = state.psUnit === 'MMHG' ? state.psVal : (state.psVal * 25.4 / 13.6);
+  const psInmmHg = excelRound(psInmmHgExact, 1);
 
-  const hVal = parseFloat(document.getElementById('hVal').value) || 0;
-  const hUnit = document.getElementById('hUnit').value;
+  const hInInH2O = state.hUnit === 'INH2O' ? state.hVal : (state.hVal / 25.4);
+  const hInmmH2O = state.hUnit === 'MMH2O' ? state.hVal : (state.hVal * 25.4);
 
-  // 3. Duct & Meter Inputs
-  const ductType = document.getElementById('ductType').value;
-  const ds = parseFloat(document.getElementById('ds').value) || 1.0;
-  const ds1 = parseFloat(document.getElementById('ds1').value) || 1.0;
-  const ds2 = parseFloat(document.getElementById('ds2').value) || 1.0;
-
-  const tmVal = parseFloat(document.getElementById('tmVal').value) || 0;
-  const tmUnit = document.getElementById('tmUnit').value;
-
-  const dn = parseFloat(document.getElementById('dn').value) || 1.0;
-  const time = parseFloat(document.getElementById('time').value) || 1.0;
-
-  let actualVmVal = parseFloat(document.getElementById('actualVmVal').value) || 0;
-  const actualVmUnit = document.getElementById('actualVmUnit').value;
-
-  // Unit Conversions
-  const tsInC = excelRound(tsUnit === 'C' ? tsVal : (tsVal - 32) / 1.8, 1);
-  const tmInC = excelRound(tmUnit === 'C' ? tmVal : (tmVal - 32) / 1.8, 1);
-
-  const paInmmHg = excelRound(paUnit === 'MMHG' ? paVal : paVal * 0.750062, 1);
-  const psInInH2O = excelRound(psUnit === 'INH2O' ? psVal : psVal * 0.53524, 1);
-  const psInmmHg = excelRound(psInInH2O * 1.86832, 2);
-
-  const hInInH2O = excelRound(hUnit === 'INH2O' ? hVal : hVal / 25.4, 2);
-  const hInmmH2O = hUnit === 'MMH2O' ? hVal : hVal * 25.4;
-
-  // Molecular Weights & Terms
+  // 2. Average gas composition & Md
+  const o2Avg = (state.o2_1 + state.o2_2 + state.o2_3) / 3.0;
+  const co2Avg = (state.co2_1 + state.co2_2 + state.co2_3) / 3.0;
   const md = excelRound(0.44 * co2Avg + 0.32 * o2Avg + 0.28 * (100.0 - o2Avg - co2Avg), 3);
+
   const kPb = paInmmHg / 25.4;
-  const kPs = (paInmmHg + psInmmHg) / 25.4;
-  const kMs = md * (1.0 - xw / 100.0) + 18.01 * (xw / 100.0);
+  const kPs = kPb + (psInInH2O / 13.6);
+  const kMs = md * (1.0 - state.xw / 100.0) + 18.01 * (state.xw / 100.0);
 
-  // Vm Target Calculation
-  const kstd = 850.0;
+  // 3. Vm calculation (ft³ & L)
+  const hInInH2ORounded2 = excelRound(hInInH2O, 2);
   const tc = 459.67;
-  const tmForVm = tmUnit === 'C' ? (tmVal * 1.8 + 32.0) : tmVal;
-  const tsForVm = tsUnit === 'C' ? (tsVal * 1.8 + 32.0) : tsVal;
+  const kp = 85.49;
+  const len = 12.0;
 
-  const vmTerm1 = 85.49 / Math.pow(2 * 12.0, 2) * 60.0 * Math.PI;
-  const vmTerm2 = (tmForVm + tc) / options.yd / (kPb + 1.0 / 13.6);
-  const vmTerm3 = options.cp * Math.sqrt(kPs / kMs / (tsForVm + tc));
-  const vmTerm4 = Math.sqrt(hInInH2O);
-  const vmTerm5 = Math.pow(dn / 25.4, 2) * time * (1.0 - xw / 100.0);
+  const vmTerm1 = kp / Math.pow(2.0 * len, 2) * 60.0 * Math.PI;
+  const vmTerm2 = (tmInFRoundedInt + tc) / state.options.yd / (kPb + 1.0 / 13.6);
+  const vmTerm3 = state.options.cp * Math.sqrt(kPs / kMs / (tsInFRoundedInt + tc));
+  const vmTerm4 = Math.sqrt(hInInH2ORounded2);
+  const vmTerm5 = Math.pow(state.dn / 25.4, 2) * state.time * (1.0 - state.xw / 100.0);
 
   const vmFt3 = excelRound(vmTerm1 * vmTerm2 * vmTerm3 * vmTerm4 * vmTerm5, 2);
-  const vmLiter = excelRound(vmFt3 * 28.3168, 2);
+  const vmLiter = excelRound(vmFt3 * 28.32, 2);
 
-  // Auto-sync actualVmVal if not manually edited
-  if (!isActualVmManuallyEdited) {
-    actualVmVal = actualVmUnit === 'LITER' ? vmLiter : vmFt3;
-    document.getElementById('actualVmVal').value = actualVmVal;
+  // Auto update actualVm if not manually edited
+  if (!state.isActualVmManuallyEdited) {
+    state.actualVmVal = state.actualVmUnit === 'LITER' ? vmLiter : vmFt3;
   }
 
-  const actualVmLiter = actualVmUnit === 'LITER' ? actualVmVal : actualVmVal * 28.3168;
+  const actualVmLiter = state.actualVmUnit === 'LITER' ? state.actualVmVal : state.actualVmVal * 28.32;
 
-  // K-Factor calculation
-  const kfTerm = kstd * Math.pow(options.cp, 2) * options.deltaHAt *
-    (tmForVm + tc) / (tsForVm + tc) * (kPs / kPb) * (md / kMs) *
-    Math.pow(1.0 - xw / 100.0, 2) * Math.pow(dn / 25.4, 4);
+  // 4. K-factor (K-f)
+  const kfTerm = 850.0 * Math.pow(state.options.cp, 2) * state.options.deltaHAt *
+    ((tmInFRoundedInt + tc) / (tsInFRoundedInt + tc)) *
+    (kPs / kPb) * (md / kMs) *
+    Math.pow(1.0 - state.xw / 100.0, 2) *
+    Math.pow(state.dn / 25.4, 4);
+
   const kf = excelRound(kfTerm, 2);
 
-  // ΔH calculation
+  // 5. ΔH calculation
   const deltaHInmmH2O = excelRound(hInmmH2O * kf, 1);
   const deltaHInInH2O = excelRound(hInInH2O * kf, 3);
   const deltaHInmmHg = deltaHInmmH2O / 13.6;
 
   // Vic & An
-  const vic = excelRound(actualVmLiter * xw / (100.0 - xw) * (18.0 / 22.4), 2);
-  const an = excelRound(Math.PI * Math.pow(dn, 2) / 4.0 / 100.0, 3);
+  const vic = excelRound(actualVmLiter * state.xw / (100.0 - state.xw) * (18.0 / 22.4), 2);
+  const an = excelRound(Math.PI * Math.pow(state.dn, 2) / 4.0 / 100.0, 3);
 
-  // Flow & velocity
-  const rho0 = excelRound((0.18 * xw + (md / 100.0) * (100.0 - xw)) / 22.4, 9);
-  const rho = excelRound(rho0 * (273.0 / (273.0 + tsInC)) * ((paInmmHg + psInmmHg) / 760.0), 3);
-  const vs = excelRound(options.cp * Math.sqrt((2.0 * 9.81) / (rho > 0 ? rho : 1.0)) * Math.sqrt(hInmmH2O > 0 ? hInmmH2O : 0), 2);
+  // Reference Outputs
+  const rho0 = excelRound((0.18 * state.xw + (md / 100.0) * (100.0 - state.xw)) / 22.4, 9);
+  const rho = excelRound(rho0 * (273.0 / (273.0 + tsInC)) * ((paInmmHg + psInmmHg) / 760.0), 9);
+  const vsTerm = state.options.cp * Math.sqrt((2.0 * 9.81) / (rho > 0 ? rho : 1.0)) * Math.sqrt(hInmmH2O > 0 ? hInmmH2O : 0);
+  const vs = excelRound(vsTerm, 2);
 
-  const ductAreaA = ductType === 'CIRCULAR'
-    ? excelRound(Math.PI * Math.pow(ds / 2.0, 2), 2)
-    : excelRound(ds1 * ds2, 2);
+  const ductAreaA = state.ductType === 'CIRCULAR' ? excelRound(Math.PI * Math.pow(state.ds, 2) / 4.0, 3) : excelRound(state.ds1 * state.ds2, 3);
   const qa = excelRound(vs * ductAreaA * 60.0, 1);
-  const qs = excelRound(qa * (273.0 / (273.0 + tsInC)) * ((paInmmHg + psInmmHg) / 760.0) * (1.0 - xw / 100.0), 1);
+  const qs = excelRound(qa * (273.0 / (273.0 + tsInC)) * ((paInmmHg + psInmmHg) / 760.0) * (1.0 - state.xw / 100.0), 1);
 
-  // Isokinetic %
-  const iTermNum = (273.0 + tsInC) * 16670.0 * ((0.00346 * vic) + (actualVmLiter / 1000.0) * (paInmmHg + deltaHInmmHg) / (273.0 + tmInC));
-  const iTermDenom = time * vs * (760.0 + psInmmHg) * an;
-  const isokineticPercent = iTermDenom > 0 ? excelRound(iTermNum / iTermDenom, 1) : 0.0;
-  const isValid = isokineticPercent >= 90.0 && isokineticPercent <= 110.0;
+  const isO2CorrectionApplied = state.os > 0.0;
+  const q = isO2CorrectionApplied && (21.0 - o2Avg) !== 0 ? excelRound(qs / ((21.0 - state.os) / (21.0 - o2Avg)), 1) : excelRound(qs, 1);
 
-  // Update DOM Outputs
-  document.getElementById('resKf').innerText = kf;
-  document.getElementById('resDeltaH').innerText = `${deltaHInmmH2O} mmH2O`;
-  document.getElementById('resDeltaHSub').innerText = `환산 → ${deltaHInInH2O} inH2O (${excelRound(deltaHInmmHg, 2)} mmHg)`;
+  // 6. Isokinetic % (I)
+  const iNumerator = (273.0 + tsInC) * 16670.0 * ((0.00346 * vic) + (actualVmLiter / 1000.0) * (paInmmHg + deltaHInmmHg) / (273.0 + tmInC));
+  const iDenominator = state.time * vs * (760.0 + psInmmHg) * an;
+  const isokineticPercent = iDenominator !== 0 ? excelRound(iNumerator / iDenominator, 1) : 0.0;
+  const isIsokineticValid = isokineticPercent >= 90.0 && isokineticPercent <= 110.0;
 
-  document.getElementById('resIsokinetic').innerText = `${isokineticPercent}%`;
-  const badge = document.getElementById('resIsokineticBadge');
-  if (isValid) {
-    badge.innerText = '✅ 적정 등속흡인범위 (90% ~ 110%) 내';
-    badge.className = 'badge badge-success';
-  } else {
-    badge.innerText = '⚠️ 등속흡인율 범위를 벗어났습니다!';
-    badge.className = 'badge badge-warning';
-  }
+  // 7. Vm0
+  const vm0 = (273.0 + tmInC) !== 0 ? excelRound(actualVmLiter * 273.0 / (273.0 + tmInC) * (paInmmHg + deltaHInmmHg) / 760.0, 2) : 0.0;
 
-  document.getElementById('resVmLiter').innerText = `${vmLiter} L (${vmFt3} ft³)`;
-  document.getElementById('resVs').innerText = `${vs} m/s`;
-
-  // Calculate Moisture Tab
-  calculateMoistureGas();
-
-  // Return calculation result object for saving
-  return {
-    kf, deltaHInmmH2O, deltaHInInH2O, deltaHInmmHg,
-    vmLiter, vmFt3, vs, qa, qs, isokineticPercent, isValid, o2Avg, co2Avg
+  state.results = {
+    tsInC, tsInF, tmInC, tmInF, paInmmHg, paInhPa, psInInH2O, psInmmHg, hInInH2O, hInmmH2O,
+    o2Avg: excelRound(o2Avg, 2),
+    co2Avg: excelRound(co2Avg, 2),
+    md, vmFt3, vmLiter, actualVmLiter, kf,
+    deltaH: deltaHInmmH2O, deltaHInInH2O, deltaHInmmHg: excelRound(deltaHInmmHg, 2),
+    isokineticPercent, isIsokineticValid,
+    rho0, rho, vs, ductAreaA, qa, qs, q, isO2CorrectionApplied, vic, an, vm0
   };
 }
 
-// Moisture Tab Calculation
-function calculateMoistureGas() {
-  const gvm = parseFloat(document.getElementById('gvmVal').value) || 0;
-  const gvmUnit = document.getElementById('gvmUnit').value;
-  const gvmInLiter = gvmUnit === 'LITER' ? gvm : gvm * 1000.0;
+// Measurement Points Calculation per ES 01301.1e Section 5.4
+function calculateMeasurementPointsInfo() {
+  if (state.ductType === 'CIRCULAR') {
+    const d = state.ds > 0 ? state.ds : 0.0;
+    const r = d / 2.0;
+    const area = excelRound(Math.PI * Math.pow(d, 2) / 4.0, 3);
 
-  const gtm = parseFloat(document.getElementById('gtmVal').value) || 0;
-  const pa = parseFloat(document.getElementById('mPaVal').value) || 760.0;
-  const pm = parseFloat(document.getElementById('mPmVal').value) || 0;
-  const ma = parseFloat(document.getElementById('maVal').value) || 0;
-  const ts = parseFloat(document.getElementById('mTsVal').value) || 0;
-  const ps = parseFloat(document.getElementById('mPsVal').value) || 0;
+    if (d <= 0.0) {
+      return { totalPoints: 0, areaM2: 0.0, divisionInfo: '직경 미입력', nearText: '', farText: '', isSingle: false };
+    }
 
-  // Saturated Pv per ES 01301.1e Table 4
-  let pv = 0;
-  if (ts >= 100) pv = 760.0;
-  else if (ts < 0) pv = 4.58;
-  else {
-    const tablePv = [4.58,4.93,5.29,5.69,6.10,6.54,7.01,7.51,8.05,8.61,9.21,9.84,10.52,11.23,11.99,12.79,13.63,14.53,15.48,16.48,17.54,18.65,19.83,21.07,22.38,23.76,25.21,26.74,28.35,30.04,31.82,33.70,35.66,37.73,39.90,42.18,44.56,47.07,49.69,52.44,55.32,58.34,61.50,64.80,68.26,71.88,75.65,79.60,83.71,88.02,92.51,97.20,102.09,107.20,112.51,118.04,123.80,129.80,136.03,142.50,149.38,156.40,163.77,171.40,179.31,187.50,195.98,204.76,213.85,223.26,233.00,243.07,253.48,264.24,275.36,286.84,298.70,310.94,323.57,336.60,350.05,363.91,378.20,392.92,408.09,423.71,439.80,456.35,473.38,490.90,508.92,527.45,546.50,566.08,586.19,606.85,628.07,649.86,672.22,695.17,718.72,742.88,760.0];
-    const idx = Math.floor(ts);
-    pv = tablePv[idx] || 760.0;
+    const rCm = r * 100.0;
+    if (area <= 0.25) {
+      const dist = Math.round(rCm);
+      return {
+        totalPoints: 1, areaM2: area,
+        divisionInfo: '소규모 굴뚝 (단면적 ≤ 0.25 m²)',
+        nearText: `r1 = ${dist} cm (중심 1점)`,
+        farText: '', isSingle: true
+      };
+    }
+
+    let rRatios, totalPts, divInfo;
+    if (d <= 1.0) { rRatios = [0.707]; totalPts = 4; divInfo = '1분할 (2지질선 × 2점)'; }
+    else if (d <= 2.0) { rRatios = [0.500, 0.866]; totalPts = 8; divInfo = '2분할 (2지질선 × 4점)'; }
+    else if (d <= 4.0) { rRatios = [0.408, 0.707, 0.913]; totalPts = 12; divInfo = '3분할 (2지질선 × 6점)'; }
+    else if (d <= 4.5) { rRatios = [0.354, 0.612, 0.791, 0.935]; totalPts = 16; divInfo = '4분할 (2지질선 × 8점)'; }
+    else { rRatios = [0.316, 0.548, 0.707, 0.873, 0.935]; totalPts = 20; divInfo = '5분할 (2지질선 × 10점)'; }
+
+    const nearWallDists = rRatios.slice().reverse().map(ratio => Math.round((1.0 - ratio) * rCm));
+    const farWallDists = rRatios.map(ratio => Math.round((1.0 + ratio) * rCm));
+
+    const k = nearWallDists.length;
+    const nearStr = nearWallDists.map((dist, idx) => `r${idx + 1} = ${dist}`).join(', ');
+    const farStr = farWallDists.map((dist, idx) => `r${idx + 1 + k} = ${dist}`).join(', ');
+
+    return {
+      totalPoints: totalPts, areaM2: area, divisionInfo: divInfo,
+      nearText: `근거리 (r1 ~ r${k}): ${nearStr} (cm)`,
+      farText: `원거리 (r${k + 1} ~ r${2 * k}): ${farStr} (cm)`,
+      isSingle: false
+    };
+  } else { // RECTANGULAR
+    const d1 = state.ds1 > 0 ? state.ds1 : 0.0;
+    const d2 = state.ds2 > 0 ? state.ds2 : 0.0;
+    const area = excelRound(d1 * d2, 3);
+
+    if (d1 <= 0.0 || d2 <= 0.0) {
+      return { totalPoints: 0, areaM2: 0.0, divisionInfo: '치수 미입력', nearText: '', farText: '', isSingle: false };
+    }
+
+    if (area <= 0.25) {
+      return { totalPoints: 1, areaM2: area, divisionInfo: '소규모 굴뚝 (단면적 ≤ 0.25 m²)', nearText: '중심 1점', farText: '', isSingle: true };
+    }
+
+    let nx = 2, ny = 2;
+    if (area >= 1.0 && area < 4.0) { nx = 3; ny = 3; }
+    else if (area >= 4.0) { nx = 4; ny = 4; }
+
+    const totalPts = nx * ny;
+    const xDists = Array.from({ length: nx }, (_, i) => Math.round(((i + 0.5) / nx) * d1 * 100));
+    const yDists = Array.from({ length: ny }, (_, i) => Math.round(((i + 0.5) / ny) * d2 * 100));
+
+    return {
+      totalPoints: totalPts, areaM2: area,
+      divisionInfo: `${nx}×${ny} 분할 단면`,
+      nearText: `가로: ` + xDists.map((dist, idx) => `x${idx + 1} = ${dist} cm`).join(', '),
+      farText: `세로: ` + yDists.map((dist, idx) => `y${idx + 1} = ${dist} cm`).join(', '),
+      isSingle: false
+    };
   }
-
-  const xw2 = excelRound(pv / (pa + ps) * 100.0, 1);
-
-  // ma calculation
-  const vWater = ma * 22.4 / 18.0;
-  const vmStd = gvmInLiter * (273.0 / (273.0 + gtm)) * ((pa + pm) / 760.0);
-  const xw1 = vmStd + vWater > 0 ? excelRound(vWater * 100.0 / (vmStd + vWater), 1) : 0;
-
-  document.getElementById('resXw2').innerText = `${xw2}%`;
-  document.getElementById('resPv').innerText = `${pv}`;
-  document.getElementById('resXw1').innerText = `${xw1}%`;
-  document.getElementById('resVmStd').innerText = `${excelRound(vmStd, 2)}`;
 }
 
-// Measurement Points Calculation
-function calculateMeasurementPoints() {
-  const type = document.getElementById('ptDuctType').value;
-  const val1 = parseFloat(document.getElementById('ptVal1').value) || 1.0;
-  const val2 = parseFloat(document.getElementById('ptVal2').value) || 1.0;
+// Calculate Tab 2 Moisture Values
+function calculateTab2Moisture() {
+  const ts = state.mTsVal;
+  let pv = 4.58;
+  if (ts > 0 && ts < 100) {
+    const tK = ts + 273.15;
+    const lnPwPa = -6096.9385 / tK + 21.2409642 - 0.02711193 * tK + 1.673952e-5 * tK * tK + 2.433502 * Math.log(tK);
+    const pwPa = Math.exp(lnPwPa);
+    pv = excelRound(pwPa * (760.0 / 101325.0), 2);
+  } else if (ts >= 100) {
+    pv = 760.0;
+  }
 
-  let totalPts = 4;
-  let division = '';
-  let detail = '';
+  const pa = state.mPaVal;
+  const ps = state.mPsVal;
+  const xw2 = (pa + ps) !== 0 ? excelRound(pv / (pa + ps) * 100.0, 1) : 0.0;
 
-  if (type === 'CIRCULAR') {
-    const rCm = val1 * 100.0 / 2.0;
-    if (val1 <= 1.0) {
-      totalPts = 4;
-      division = '1분할 (2지질선 × 2점)';
-      const r1 = Math.round((1.0 - 0.707) * rCm);
-      const r2 = Math.round((1.0 + 0.707) * rCm);
-      detail = `벽면 유격 거리 (원형): ${r1} cm, ${r2} cm`;
-    } else if (val1 <= 2.0) {
-      totalPts = 8;
-      division = '2분할 (2지질선 × 4점)';
-      detail = `벽면 유격 거리: 단면 반경 ${rCm}cm 기준 ES 01301.1e 표 배치`;
-    } else {
-      totalPts = 12;
-      division = '3분할 (2지질선 × 6점)';
-      detail = `벽면 유격 거리: 단면 반경 ${rCm}cm 기준 ES 01301.1e 표 배치`;
-    }
+  const gvmL = state.gvmUnit === 'LITER' ? state.gvmVal : state.gvmVal * 1000.0;
+  const gtmC = state.gtmUnit === 'C' ? state.gtmVal : (state.gtmVal - 32.0) / 1.8;
+  const pm = state.mPmVal;
+
+  const vWater = state.maVal * 22.4 / 18.0;
+  const vGas = gvmL * (273.0 / (273.0 + gtmC)) * (pa + pm) / 760.0;
+  const xw1 = (vGas + vWater) !== 0 ? excelRound(vWater * 100.0 / (vGas + vWater), 1) : 0.0;
+
+  return { pv, xw2, xw1, vmStd: excelRound(vGas, 1) };
+}
+
+// UI Update Renderer
+function updateUI() {
+  runCalculationEngine();
+  const res = state.results;
+
+  // 1. Gas section averages
+  document.getElementById('o2AvgText').textContent = `${res.o2Avg}%`;
+  document.getElementById('co2AvgText').textContent = `${res.co2Avg}%`;
+
+  const o2Badge = document.getElementById('o2CorrectionBadge');
+  if (res.isO2CorrectionApplied) {
+    o2Badge.textContent = '산소보정 적용';
+    o2Badge.className = 'status-badge badge-active';
   } else {
-    const area = val1 * val2;
-    if (area <= 1.0) {
-      totalPts = 4;
-      division = '2 × 2 분할';
-    } else if (area <= 4.0) {
-      totalPts = 9;
-      division = '3 × 3 분할';
-    } else {
-      totalPts = 16;
-      division = '4 × 4 분할';
+    o2Badge.textContent = '산소보정 미적용';
+    o2Badge.className = 'status-badge badge-neutral';
+  }
+
+  // 2. Unit conversion displays
+  document.getElementById('tsConvertedText').textContent = state.tsUnit === 'C' ? `${excelRound(res.tsInF, 1)} °F` : `${excelRound(res.tsInC, 1)} °C`;
+  document.getElementById('paConvertedText').textContent = state.paUnit === 'HPA' ? `${excelRound(res.paInmmHg, 2)} mmHg` : `${excelRound(res.paInhPa, 1)} hPa`;
+  document.getElementById('psConvertedText').textContent = state.psUnit === 'INH2O' ? `${excelRound(res.psInmmHg, 1)} mmHg` : `${excelRound(res.psInInH2O, 1)} inH₂O`;
+  document.getElementById('hConvertedText').textContent = state.hUnit === 'INH2O' ? `${excelRound(res.hInmmH2O, 1)} mmH₂O` : `${excelRound(res.hInInH2O, 3)} inH₂O`;
+  document.getElementById('tmConvertedText').textContent = state.tmUnit === 'C' ? `${excelRound(res.tmInF, 1)} °F` : `${excelRound(res.tmInC, 1)} °C`;
+
+  // Duct UI Toggle
+  if (state.ductType === 'CIRCULAR') {
+    document.getElementById('btnDuctCircular').classList.add('active');
+    document.getElementById('btnDuctRectangular').classList.remove('active');
+    document.getElementById('circularDuctBox').classList.remove('hidden');
+    document.getElementById('rectangularDuctBox').classList.add('hidden');
+  } else {
+    document.getElementById('btnDuctCircular').classList.remove('active');
+    document.getElementById('btnDuctRectangular').classList.add('active');
+    document.getElementById('circularDuctBox').classList.add('hidden');
+    document.getElementById('rectangularDuctBox').classList.remove('hidden');
+  }
+
+  // Embedded Measurement Points
+  const pts = calculateMeasurementPointsInfo();
+  document.getElementById('ptTotalBadge').textContent = `${pts.totalPoints} 개소`;
+  document.getElementById('ptAreaText').textContent = `${pts.areaM2} m²`;
+  document.getElementById('ptDivisionText').textContent = pts.divisionInfo;
+
+  const detailBox = document.getElementById('ptDistanceDetail');
+  if (pts.isSingle) {
+    detailBox.innerHTML = `<div>${pts.nearText}</div>`;
+  } else {
+    detailBox.innerHTML = `<div>${pts.nearText}</div><div>${pts.farText}</div>`;
+  }
+
+  // Reset Actual Vm Button visibility
+  const resetBtn = document.getElementById('btnResetActualVm');
+  if (state.isActualVmManuallyEdited) {
+    resetBtn.classList.remove('hidden');
+  } else {
+    resetBtn.classList.add('hidden');
+  }
+  document.getElementById('resVm0Text').textContent = `${res.vm0} L`;
+
+  // Core Result Cards
+  document.getElementById('resVmFt3').textContent = res.vmFt3;
+  document.getElementById('resVmLiterSub').textContent = `L환산 → ${res.vmLiter} L`;
+  document.getElementById('resKf').textContent = res.kf;
+  document.getElementById('resDeltaH').textContent = res.deltaH;
+  document.getElementById('resDeltaHSub').textContent = `환산 → ${res.deltaHInInH2O} inH₂O (${res.deltaHInmmHg} mmHg)`;
+
+  // Isokinetic Alert
+  const isokineticCard = document.getElementById('isokineticAlertCard');
+  document.getElementById('resIsokineticVal').textContent = `${res.isokineticPercent} %`;
+  if (res.isIsokineticValid) {
+    isokineticCard.className = 'isokinetic-alert alert-success';
+    document.getElementById('isokineticIcon').textContent = '✅';
+    document.getElementById('resIsokineticDesc').textContent = '✅ 적정 등속흡인범위 (90% ~ 110%) 내에 있습니다.';
+  } else {
+    isokineticCard.className = 'isokinetic-alert alert-warning';
+    document.getElementById('isokineticIcon').textContent = '⚠️';
+    document.getElementById('resIsokineticDesc').textContent = '⚠️ 경고: 등속흡인율이 적정범위(90% ~ 110%)를 벗어났습니다!';
+  }
+
+  // Reference Table
+  document.getElementById('refMd').textContent = res.md;
+  document.getElementById('refRho0').textContent = `${res.rho0} kg/m³`;
+  document.getElementById('refRho').textContent = `${res.rho} kg/m³`;
+  document.getElementById('refVs').textContent = `${res.vs} m/sec`;
+  document.getElementById('refA').textContent = `${res.ductAreaA} m²`;
+  document.getElementById('refQa').textContent = `${res.qa} m³/min`;
+  document.getElementById('refQs').textContent = `${res.qs} m³/min`;
+  document.getElementById('refQLabel').textContent = res.isO2CorrectionApplied ? '보정 유량 (Q - 산소보정)' : '보정 유량 (Q - 산소보정 미적용)';
+  document.getElementById('refQ').textContent = `${res.q} m³/min`;
+  document.getElementById('refVic').textContent = res.vic;
+  document.getElementById('refAn').textContent = `${res.an} cm²`;
+
+  // Tab 2 Moisture
+  const tab2Res = calculateTab2Moisture();
+  document.getElementById('resPv').textContent = tab2Res.pv;
+  document.getElementById('resXw2').textContent = tab2Res.xw2;
+  document.getElementById('resXw1').textContent = tab2Res.xw1;
+  document.getElementById('resVmStd').textContent = tab2Res.vmStd;
+}
+
+// Bind Event Listeners to Inputs
+function bindInputEvents() {
+  const ids = [
+    'o2_1', 'o2_2', 'o2_3', 'co2_1', 'co2_2', 'co2_3', 'os', 'xw',
+    'tsVal', 'paVal', 'psVal', 'hVal', 'tmVal', 'ds', 'ds1', 'ds2',
+    'dn', 'time', 'actualVmVal',
+    'gvmVal', 'gtmVal', 'mPaVal', 'mPmVal', 'maVal', 'mTsVal', 'mPsVal'
+  ];
+
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value) || 0;
+      state[id] = val;
+      if (id === 'actualVmVal') {
+        state.isActualVmManuallyEdited = true;
+      }
+      updateUI();
+    });
+  });
+
+  // Unit Chips for Tab 1
+  bindUnitToggle('tsUnitC', 'tsUnitF', (unit) => { state.tsUnit = unit; });
+  bindUnitToggle('paUnitHpa', 'paUnitMmhg', (unit) => { state.paUnit = unit; });
+  bindUnitToggle('psUnitInH2O', 'psUnitMmhg', (unit) => { state.psUnit = unit; });
+  bindUnitToggle('hUnitInH2O', 'hUnitMmH2O', (unit) => { state.hUnit = unit; });
+  bindUnitToggle('tmUnitC', 'tmUnitF', (unit) => { state.tmUnit = unit; });
+  bindUnitToggle('vmUnitLiter', 'vmUnitFt3', (unit) => {
+    state.actualVmUnit = unit;
+    state.isActualVmManuallyEdited = false; // reset manual edit on unit change
+  });
+
+  // Duct Type Buttons
+  document.getElementById('btnDuctCircular').addEventListener('click', () => {
+    state.ductType = 'CIRCULAR';
+    updateUI();
+  });
+  document.getElementById('btnDuctRectangular').addEventListener('click', () => {
+    state.ductType = 'RECTANGULAR';
+    updateUI();
+  });
+
+  // Quick Nozzle Select
+  document.getElementById('nozzleQuickSelect').addEventListener('change', (e) => {
+    if (e.target.value) {
+      state.dn = parseFloat(e.target.value);
+      document.getElementById('dn').value = state.dn;
+      e.target.value = '';
+      updateUI();
     }
-    detail = `사각 덕트 단면적 ${excelRound(area, 2)} m²`;
-  }
+  });
 
-  document.getElementById('resPtTotal').innerText = `${totalPts}개소`;
-  document.getElementById('resPtDiv').innerText = division;
-  document.getElementById('resPtDetail').innerText = detail;
+  // Reset Actual Vm Button
+  document.getElementById('btnResetActualVm').addEventListener('click', () => {
+    state.isActualVmManuallyEdited = false;
+    updateUI();
+    document.getElementById('actualVmVal').value = state.actualVmVal;
+  });
+
+  // Navigation Tabs
+  const tabs = document.querySelectorAll('.app-tab');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const targetId = tab.getAttribute('data-target');
+      document.querySelectorAll('.tab-page').forEach(page => page.classList.add('hidden'));
+      document.getElementById(targetId).classList.remove('hidden');
+    });
+  });
+
+  // Tab 2 selects
+  document.getElementById('gvmUnit').addEventListener('change', (e) => { state.gvmUnit = e.target.value; updateUI(); });
+  document.getElementById('gtmUnit').addEventListener('change', (e) => { state.gtmUnit = e.target.value; updateUI(); });
 }
 
-// SAVE RECORD MODAL LOGIC
-function openSaveModal() {
-  const res = calculateAll();
-  const now = getNowFormatted();
-  document.getElementById('saveModalCreatedAt').innerText = now;
-  document.getElementById('facilityNameInput').value = '';
+function bindUnitToggle(btn1Id, btn2Id, onSelect) {
+  const btn1 = document.getElementById(btn1Id);
+  const btn2 = document.getElementById(btn2Id);
 
-  const ductType = document.getElementById('ductType').value;
-  const ds = document.getElementById('ds').value;
-  const ds1 = document.getElementById('ds1').value;
-  const ds2 = document.getElementById('ds2').value;
-  const xw = document.getElementById('xw').value;
+  btn1.addEventListener('click', () => {
+    btn1.classList.add('active');
+    btn2.classList.remove('active');
+    onSelect(btn1.getAttribute('data-unit'));
+    updateUI();
+  });
 
-  const ductDesc = ductType === 'CIRCULAR' ? `원형 D=${ds}m` : `사각 ${ds1}m×${ds2}m`;
-
-  const summaryHtml = `
-    • <b>K-Factor</b>: ${res.kf}<br>
-    • <b>시료채취량 Vm</b>: ${res.vmLiter} L (${res.vmFt3} ft³)<br>
-    • <b>덕트크기</b>: ${ductDesc}<br>
-    • <b>산소 O₂</b>: ${res.o2Avg}% | <b>수분량 Xw</b>: ${xw}%
-  `;
-  document.getElementById('saveSummaryBox').innerHTML = summaryHtml;
-  document.getElementById('saveRecordModal').classList.remove('hidden');
+  btn2.addEventListener('click', () => {
+    btn2.classList.add('active');
+    btn1.classList.remove('active');
+    onSelect(btn2.getAttribute('data-unit'));
+    updateUI();
+  });
 }
 
-function closeSaveModal() {
-  document.getElementById('saveRecordModal').classList.add('hidden');
+// Save Record Modal Logic
+function setupSaveRecordModal() {
+  const saveModal = document.getElementById('saveRecordModal');
+  const openBtn = document.getElementById('openSaveModalBtn');
+  const closeBtn = document.getElementById('closeSaveModalBtn');
+  const cancelBtn = document.getElementById('cancelSaveRecordBtn');
+  const confirmBtn = document.getElementById('confirmSaveRecordBtn');
+
+  openBtn.addEventListener('click', () => {
+    const nowStr = new Date().toLocaleString('ko-KR');
+    document.getElementById('saveModalCreatedAt').textContent = nowStr;
+
+    const res = state.results;
+    document.getElementById('saveSummaryBox').innerHTML = `
+      • K-Factor (K-f): <b>${res.kf}</b><br>
+      • 채취량 (Vm): <b>${res.vmFt3} ft³ (${res.vmLiter} L)</b><br>
+      • 오리피스 압력차 (ΔH): <b>${res.deltaH} mmH₂O</b><br>
+      • 등속흡인율 (I): <b>${res.isokineticPercent}%</b> (${res.isIsokineticValid ? '정상' : '범위초과'})<br>
+      • 배출가스 유속 (Vs): <b>${res.vs} m/s</b> | 표준유량 (Qs): <b>${res.qs} m³/min</b>
+    `;
+
+    document.getElementById('facilityNameInput').value = '';
+    saveModal.classList.remove('hidden');
+  });
+
+  const closeModal = () => saveModal.classList.add('hidden');
+  closeBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
+
+  confirmBtn.addEventListener('click', () => {
+    const facilityName = document.getElementById('facilityNameInput').value.trim() || '미지정 설비';
+    const record = {
+      id: Date.now(),
+      createdAt: new Date().toLocaleString('ko-KR'),
+      facilityName,
+      inputs: { ...state },
+      results: { ...state.results }
+    };
+
+    saveRecordToStorage(record);
+    alert('설비 측정 기록이 성공적으로 저장되었습니다!');
+    closeModal();
+  });
 }
 
-function confirmSaveRecord() {
-  const facilityName = document.getElementById('facilityNameInput').value.trim();
-  if (!facilityName) {
-    alert('설비명을 입력해 주세요.');
-    return;
-  }
+// Load Records Modal Logic
+function setupLoadRecordsModal() {
+  const loadModal = document.getElementById('loadRecordsModal');
+  const openBtn = document.getElementById('openLoadModalBtn');
+  const closeBtn = document.getElementById('closeLoadModalBtn');
 
-  const res = calculateAll();
-  const ductType = document.getElementById('ductType').value;
-  const ds = document.getElementById('ds').value;
-  const ds1 = document.getElementById('ds1').value;
-  const ds2 = document.getElementById('ds2').value;
-  const xw = document.getElementById('xw').value;
-  const ductDesc = ductType === 'CIRCULAR' ? `원형 D=${ds}m` : `사각 ${ds1}m×${ds2}m`;
+  openBtn.addEventListener('click', () => {
+    renderRecordsList();
+    loadModal.classList.remove('hidden');
+  });
 
-  const record = {
-    id: currentEditingRecordId || ('rec_' + Date.now()),
-    facilityName: facilityName,
-    createdAt: getNowFormatted(),
-    o2_1: document.getElementById('o2_1').value,
-    o2_2: document.getElementById('o2_2').value,
-    o2_3: document.getElementById('o2_3').value,
-    co2_1: document.getElementById('co2_1').value,
-    co2_2: document.getElementById('co2_2').value,
-    co2_3: document.getElementById('co2_3').value,
-    os: document.getElementById('os').value,
-    xw: xw,
-    tsVal: document.getElementById('tsVal').value,
-    tsUnit: document.getElementById('tsUnit').value,
-    paVal: document.getElementById('paVal').value,
-    paUnit: document.getElementById('paUnit').value,
-    psVal: document.getElementById('psVal').value,
-    psUnit: document.getElementById('psUnit').value,
-    hVal: document.getElementById('hVal').value,
-    hUnit: document.getElementById('hUnit').value,
-    ductType: ductType,
-    ds: ds, ds1: ds1, ds2: ds2,
-    tmVal: document.getElementById('tmVal').value,
-    tmUnit: document.getElementById('tmUnit').value,
-    dn: document.getElementById('dn').value,
-    time: document.getElementById('time').value,
-    actualVmVal: document.getElementById('actualVmVal').value,
-    actualVmUnit: document.getElementById('actualVmUnit').value,
-    isActualVmManuallyEdited: isActualVmManuallyEdited,
-    gvmVal: document.getElementById('gvmVal').value,
-    gvmUnit: document.getElementById('gvmUnit').value,
-    gtmVal: document.getElementById('gtmVal').value,
-    mPaVal: document.getElementById('mPaVal').value,
-    mPmVal: document.getElementById('mPmVal').value,
-    maVal: document.getElementById('maVal').value,
-    mTsVal: document.getElementById('mTsVal').value,
-    mPsVal: document.getElementById('mPsVal').value,
-    kFactorSummary: `Kf: ${res.kf}`,
-    vmSummary: `Vm: ${res.vmLiter}L`,
-    ductSummary: ductDesc,
-    extraSummary: `O₂: ${res.o2Avg}%, Xw: ${xw}%`
-  };
+  closeBtn.addEventListener('click', () => loadModal.classList.add('hidden'));
 
-  saveRecordItem(record);
-  currentEditingRecordId = null;
-  closeSaveModal();
-  alert('설비 측정기록이 저장되었습니다!');
-}
+  // Search Tabs
+  const nameTab = document.getElementById('btnSearchNameTab');
+  const dateTab = document.getElementById('btnSearchDateTab');
+  const nameArea = document.getElementById('searchNameArea');
+  const dateArea = document.getElementById('searchDateArea');
 
-// LOAD RECORDS MODAL LOGIC
-let activeSearchTab = 'name'; // 'name' | 'date'
-let activeDatePreset = 'all';
+  nameTab.addEventListener('click', () => {
+    nameTab.classList.add('active');
+    dateTab.classList.remove('active');
+    nameArea.classList.remove('hidden');
+    dateArea.classList.add('hidden');
+  });
 
-function openLoadModal() {
-  renderRecordsList();
-  document.getElementById('loadRecordsModal').classList.remove('hidden');
-}
+  dateTab.addEventListener('click', () => {
+    dateTab.classList.add('active');
+    nameTab.classList.remove('active');
+    dateArea.classList.remove('hidden');
+    nameArea.classList.add('hidden');
+  });
 
-function closeLoadModal() {
-  document.getElementById('loadRecordsModal').classList.add('hidden');
+  document.getElementById('searchQueryInput').addEventListener('input', renderRecordsList);
+
+  // Preset date buttons
+  document.querySelectorAll('.btn-preset').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      renderRecordsList();
+    });
+  });
+
+  // CSV Export
+  document.getElementById('btnExportExcel').addEventListener('click', exportRecordsToCSV);
+
+  // CSV Import
+  const fileInput = document.getElementById('csvFileInput');
+  document.getElementById('btnImportCsv').addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', importRecordsFromCSV);
 }
 
 function renderRecordsList() {
-  const records = getAllRecords();
   const container = document.getElementById('recordsListContainer');
+  const records = getStoredRecords();
+  const query = document.getElementById('searchQueryInput').value.trim().toLowerCase();
 
-  let filtered = records;
-  if (activeSearchTab === 'name') {
-    const q = document.getElementById('searchQueryInput').value.trim().toLowerCase();
-    if (q) {
-      filtered = records.filter(r => r.facilityName.toLowerCase().includes(q));
+  const filtered = records.filter(r => {
+    if (query) {
+      return r.facilityName.toLowerCase().includes(query);
     }
-  } else {
-    const start = document.getElementById('startDateInput').value;
-    const end = document.getElementById('endDateInput').value;
-    filtered = records.filter(r => {
-      const rDate = r.createdAt.substring(0, 10);
-      const afterStart = !start || rDate >= start;
-      const beforeEnd = !end || rDate <= end;
-      return afterStart && beforeEnd;
-    });
-  }
+    return true;
+  });
 
   if (filtered.length === 0) {
-    container.innerHTML = '<div class="empty-state">저장된 설비 기록이 없습니다.</div>';
+    container.innerHTML = `<div class="empty-state">저장된 기록이 없거나 검색 결과가 없습니다.</div>`;
     return;
   }
 
   container.innerHTML = filtered.map(r => `
     <div class="record-item-card">
       <div class="record-item-header">
-        <span class="record-item-title">🏭 ${r.facilityName}</span>
+        <span class="record-item-title">${r.facilityName}</span>
         <span class="record-item-date">${r.createdAt}</span>
       </div>
       <div class="record-item-summary">
-        • ${r.kFactorSummary || ''} | ${r.vmSummary || ''}<br>
-        • ${r.ductSummary || ''} | ${r.extraSummary || ''}
+        • K-f: <b>${r.results.kf}</b> | Vm: <b>${r.results.vmFt3} ft³</b> (${r.results.vmLiter} L) | ΔH: <b>${r.results.deltaH} mmH₂O</b><br>
+        • 등속흡인율 (I): <b>${r.results.isokineticPercent}%</b> | Vs: <b>${r.results.vs} m/s</b> | Qs: <b>${r.results.qs} m³/min</b>
       </div>
       <div class="record-item-buttons">
-        <button class="btn-card-action load" onclick="loadRecordToApp('${r.id}')">📂 불러오기</button>
-        <button class="btn-card-action" onclick="renameRecordItem('${r.id}')">✏️ 수정</button>
-        <button class="btn-card-action delete" onclick="removeRecordItem('${r.id}')">🗑️ 삭제</button>
+        <button class="btn-card-action load" onclick="loadRecordState(${r.id})">📥 불러오기</button>
+        <button class="btn-card-action delete" onclick="deleteRecordItem(${r.id})">🗑 삭제</button>
       </div>
     </div>
   `).join('');
 }
 
-function loadRecordToApp(id) {
-  const records = getAllRecords();
-  const r = records.find(item => item.id === id);
-  if (!r) return;
+window.loadRecordState = function (id) {
+  const records = getStoredRecords();
+  const record = records.find(r => r.id === id);
+  if (!record) return;
 
-  document.getElementById('o2_1').value = r.o2_1 || "20.9";
-  document.getElementById('o2_2').value = r.o2_2 || "20.9";
-  document.getElementById('o2_3').value = r.o2_3 || "20.9";
-  document.getElementById('co2_1').value = r.co2_1 || "0.0";
-  document.getElementById('co2_2').value = r.co2_2 || "0.0";
-  document.getElementById('co2_3').value = r.co2_3 || "0.0";
-  document.getElementById('os').value = r.os || "0.0";
-  document.getElementById('xw').value = r.xw || "1.2";
+  if (confirm(`'${record.facilityName}' 측정데이터를 불러오시겠습니까?`)) {
+    Object.assign(state, record.inputs);
+    // Restore input field values
+    const fieldIds = [
+      'o2_1', 'o2_2', 'o2_3', 'co2_1', 'co2_2', 'co2_3', 'os', 'xw',
+      'tsVal', 'paVal', 'psVal', 'hVal', 'tmVal', 'ds', 'ds1', 'ds2',
+      'dn', 'time', 'actualVmVal'
+    ];
+    fieldIds.forEach(f => {
+      const el = document.getElementById(f);
+      if (el && state[f] !== undefined) el.value = state[f];
+    });
 
-  document.getElementById('tsVal').value = r.tsVal || "50.0";
-  document.getElementById('tsUnit').value = r.tsUnit || "C";
-  document.getElementById('paVal').value = r.paVal || "1013.0";
-  document.getElementById('paUnit').value = r.paUnit || "HPA";
-  document.getElementById('psVal').value = r.psVal || "-0.5";
-  document.getElementById('psUnit').value = r.psUnit || "INH2O";
-  document.getElementById('hVal').value = r.hVal || "0.5";
-  document.getElementById('hUnit').value = r.hUnit || "INH2O";
+    updateUI();
+    document.getElementById('loadRecordsModal').classList.add('hidden');
+    alert('측정 데이터가 불러와졌습니다.');
+  }
+};
 
-  document.getElementById('ductType').value = r.ductType || "CIRCULAR";
-  document.getElementById('ds').value = r.ds || "1.0";
-  document.getElementById('ds1').value = r.ds1 || "1.0";
-  document.getElementById('ds2').value = r.ds2 || "1.0";
-  toggleDuctInputs();
-
-  document.getElementById('tmVal').value = r.tmVal || "25.0";
-  document.getElementById('tmUnit').value = r.tmUnit || "C";
-  document.getElementById('dn').value = r.dn || "6.35";
-  document.getElementById('time').value = r.time || "30.0";
-  document.getElementById('actualVmVal').value = r.actualVmVal || "0.0";
-  document.getElementById('actualVmUnit').value = r.actualVmUnit || "LITER";
-
-  isActualVmManuallyEdited = r.isActualVmManuallyEdited || false;
-
-  if (r.gvmVal) document.getElementById('gvmVal').value = r.gvmVal;
-  if (r.gvmUnit) document.getElementById('gvmUnit').value = r.gvmUnit;
-  if (r.gtmVal) document.getElementById('gtmVal').value = r.gtmVal;
-  if (r.mPaVal) document.getElementById('mPaVal').value = r.mPaVal;
-  if (r.mPmVal) document.getElementById('mPmVal').value = r.mPmVal;
-  if (r.maVal) document.getElementById('maVal').value = r.maVal;
-  if (r.mTsVal) document.getElementById('mTsVal').value = r.mTsVal;
-  if (r.mPsVal) document.getElementById('mPsVal').value = r.mPsVal;
-
-  calculateAll();
-  closeLoadModal();
-  alert(`'${r.facilityName}' 설비 기록을 불러왔습니다.`);
-}
-
-function renameRecordItem(id) {
-  const records = getAllRecords();
-  const r = records.find(item => item.id === id);
-  if (!r) return;
-
-  const newName = prompt('변경할 설비명을 입력하세요:', r.facilityName);
-  if (newName && newName.trim()) {
-    r.facilityName = newName.trim();
-    saveRecordItem(r);
+window.deleteRecordItem = function (id) {
+  if (confirm('이 설비 기록을 삭제하시겠습니까?')) {
+    deleteRecordFromStorage(id);
     renderRecordsList();
   }
-}
+};
 
-function removeRecordItem(id) {
-  if (confirm('해당 설비 기록을 삭제하시겠습니까?')) {
-    deleteRecordItem(id);
-    renderRecordsList();
-  }
-}
-
-// EXPORT TO EXCEL / CSV
-function exportRecordsToCsv() {
-  const records = getAllRecords();
+function exportRecordsToCSV() {
+  const records = getStoredRecords();
   if (records.length === 0) {
     alert('내보낼 저장 기록이 없습니다.');
     return;
   }
 
-  const headers = ["설비명", "작성일시", "K-Factor 요약", "채취량 요약", "덕트 요약", "비고", "O2_1", "O2_2", "O2_3", "Xw", "Ts", "Pa", "Ps", "h", "Dn", "Time"];
-  
-  const rows = records.map(r => [
-    `"${r.facilityName.replace(/"/g, '""')}"`,
-    `"${r.createdAt}"`,
-    `"${r.kFactorSummary || ''}"`,
-    `"${r.vmSummary || ''}"`,
-    `"${r.ductSummary || ''}"`,
-    `"${r.extraSummary || ''}"`,
-    r.o2_1, r.o2_2, r.o2_3, r.xw, r.tsVal, r.paVal, r.psVal, r.hVal, r.dn, r.time
-  ]);
+  let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+  csvContent += "ID,생성일시,설비명,Kf,Vm_ft3,Vm_L,DeltaH_mmH2O,Isokinetic_percent,Vs_ms,Qs_m3min\n";
 
-  const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `kfactor_records_${Date.now()}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  records.forEach(r => {
+    const row = [
+      r.id,
+      `"${r.createdAt}"`,
+      `"${r.facilityName}"`,
+      r.results.kf,
+      r.results.vmFt3,
+      r.results.vmLiter,
+      r.results.deltaH,
+      r.results.isokineticPercent,
+      r.results.vs,
+      r.results.qs
+    ].join(',');
+    csvContent += row + "\n";
+  });
+
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `dust_measurement_records_${Date.now()}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
-// IMPORT FROM CSV / JSON
-function importRecordsFromCsv(event) {
-  const file = event.target.files[0];
+function importRecordsFromCSV(e) {
+  const file = e.target.files[0];
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = function(e) {
+  reader.onload = (evt) => {
     try {
-      const content = e.target.result;
+      const content = evt.target.result;
       if (file.name.endsWith('.json')) {
         const imported = JSON.parse(content);
         if (Array.isArray(imported)) {
-          imported.forEach(r => saveRecordItem(r));
-          alert(`${imported.length}개 기록을 불러왔습니다.`);
+          localStorage.setItem(STORAGE_RECORDS_KEY, JSON.stringify(imported));
+          alert('기록 JSON이 성공적으로 반영되었습니다.');
           renderRecordsList();
         }
       } else {
-        alert('CSV 불러오기가 완료되었습니다.');
-        renderRecordsList();
+        alert('CSV 불러오기는 완료되었습니다.');
       }
     } catch (err) {
-      alert('파일 불러오기 실패: 올바른 형식의 파일이 아닙니다.');
+      alert('파일 불러오기 중 오류가 발생하였습니다.');
     }
   };
   reader.readAsText(file);
 }
 
-// TOGGLE DUCT INPUTS
-function toggleDuctInputs() {
-  const type = document.getElementById('ductType').value;
-  if (type === 'CIRCULAR') {
-    document.getElementById('wrapDs').classList.remove('hidden');
-    document.getElementById('wrapDs1').classList.add('hidden');
-    document.getElementById('wrapDs2').classList.add('hidden');
-  } else {
-    document.getElementById('wrapDs').classList.add('hidden');
-    document.getElementById('wrapDs1').classList.remove('hidden');
-    document.getElementById('wrapDs2').classList.remove('hidden');
-  }
-}
+// Setup Options Modal
+function setupOptionsModal() {
+  const modal = document.getElementById('optionsModal');
+  const openBtn = document.getElementById('openOptionsBtn');
+  const closeBtn = document.getElementById('closeOptionsBtn');
+  const saveBtn = document.getElementById('saveOptionsBtn');
 
-// INITIALIZATION
-function initApp() {
-  // Tabs
-  document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-      document.getElementById(tab.dataset.target).classList.remove('hidden');
-    });
+  openBtn.addEventListener('click', () => {
+    document.getElementById('optYd').value = state.options.yd;
+    document.getElementById('optCp').value = state.options.cp;
+    document.getElementById('optDeltaHAt').value = state.options.deltaHAt;
+    document.getElementById('optNozzles').value = state.options.nozzleList.join(', ');
+    modal.classList.remove('hidden');
   });
 
-  // Event Listeners for real-time recalculation
-  const allInputs = document.querySelectorAll('#tabKFactor input, #tabKFactor select');
-  allInputs.forEach(i => i.addEventListener('input', (e) => {
-    if (e.target.id === 'actualVmVal') {
-      isActualVmManuallyEdited = true;
-    }
-    calculateAll();
-  }));
+  closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
 
-  const moistureInputs = document.querySelectorAll('#tabMoisture input, #tabMoisture select');
-  moistureInputs.forEach(i => i.addEventListener('input', calculateMoistureGas));
+  saveBtn.addEventListener('click', () => {
+    state.options.yd = parseFloat(document.getElementById('optYd').value) || 1.0;
+    state.options.cp = parseFloat(document.getElementById('optCp').value) || 0.84;
+    state.options.deltaHAt = parseFloat(document.getElementById('optDeltaHAt').value) || 1.76;
 
-  const ptInputs = document.querySelectorAll('#tabPoints input, #tabPoints select');
-  ptInputs.forEach(i => i.addEventListener('input', calculateMeasurementPoints));
-
-  // Duct Type listener
-  document.getElementById('ductType').addEventListener('change', () => {
-    toggleDuctInputs();
-    calculateAll();
-  });
-
-  // Nozzle Quick Select listener
-  document.getElementById('nozzleQuickSelect').addEventListener('change', (e) => {
-    if (e.target.value) {
-      document.getElementById('dn').value = e.target.value;
-      calculateAll();
-    }
-  });
-
-  // Reset Actual Vm button
-  document.getElementById('btnResetActualVm').addEventListener('click', () => {
-    isActualVmManuallyEdited = false;
-    calculateAll();
-  });
-
-  // Modal Buttons
-  document.getElementById('openSaveModalBtn').addEventListener('click', openSaveModal);
-  document.getElementById('closeSaveModalBtn').addEventListener('click', closeSaveModal);
-  document.getElementById('cancelSaveRecordBtn').addEventListener('click', closeSaveModal);
-  document.getElementById('confirmSaveRecordBtn').addEventListener('click', confirmSaveRecord);
-
-  document.getElementById('openLoadModalBtn').addEventListener('click', openLoadModal);
-  document.getElementById('closeLoadModalBtn').addEventListener('click', closeLoadModal);
-
-  // Load Modal internal search tabs
-  document.getElementById('btnSearchNameTab').addEventListener('click', () => {
-    activeSearchTab = 'name';
-    document.getElementById('btnSearchNameTab').classList.add('active');
-    document.getElementById('btnSearchDateTab').classList.remove('active');
-    document.getElementById('searchNameArea').classList.remove('hidden');
-    document.getElementById('searchDateArea').classList.add('hidden');
-    renderRecordsList();
-  });
-
-  document.getElementById('btnSearchDateTab').addEventListener('click', () => {
-    activeSearchTab = 'date';
-    document.getElementById('btnSearchDateTab').classList.add('active');
-    document.getElementById('btnSearchNameTab').classList.remove('active');
-    document.getElementById('searchDateArea').classList.remove('hidden');
-    document.getElementById('searchNameArea').classList.add('hidden');
-    renderRecordsList();
-  });
-
-  document.getElementById('searchQueryInput').addEventListener('input', renderRecordsList);
-  document.getElementById('startDateInput').addEventListener('change', renderRecordsList);
-  document.getElementById('endDateInput').addEventListener('change', renderRecordsList);
-
-  // Date Preset Buttons
-  document.querySelectorAll('.btn-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const preset = btn.dataset.preset;
-      const todayStr = new Date().toISOString().substring(0, 10);
-      if (preset === 'all') {
-        document.getElementById('startDateInput').value = '';
-        document.getElementById('endDateInput').value = '';
-      } else if (preset === 'today') {
-        document.getElementById('startDateInput').value = todayStr;
-        document.getElementById('endDateInput').value = todayStr;
-      } else if (preset === '7days') {
-        const d = new Date(); d.setDate(d.getDate() - 7);
-        document.getElementById('startDateInput').value = d.toISOString().substring(0, 10);
-        document.getElementById('endDateInput').value = todayStr;
-      } else if (preset === '30days') {
-        const d = new Date(); d.setDate(d.getDate() - 30);
-        document.getElementById('startDateInput').value = d.toISOString().substring(0, 10);
-        document.getElementById('endDateInput').value = todayStr;
-      }
-      renderRecordsList();
-    });
-  });
-
-  // Export & Import
-  document.getElementById('btnExportExcel').addEventListener('click', exportRecordsToCsv);
-  document.getElementById('btnImportCsv').addEventListener('click', () => {
-    document.getElementById('csvFileInput').click();
-  });
-  document.getElementById('csvFileInput').addEventListener('change', importRecordsFromCsv);
-
-  // Options Modal
-  const optionsModal = document.getElementById('optionsModal');
-  document.getElementById('openOptionsBtn').addEventListener('click', () => {
-    document.getElementById('optYd').value = options.yd;
-    document.getElementById('optCp').value = options.cp;
-    document.getElementById('optDeltaHAt').value = options.deltaHAt;
-    document.getElementById('optNozzles').value = options.nozzles.join(', ');
-    optionsModal.classList.remove('hidden');
-  });
-  document.getElementById('closeOptionsBtn').addEventListener('click', () => optionsModal.classList.add('hidden'));
-  document.getElementById('saveOptionsBtn').addEventListener('click', () => {
-    options.yd = parseFloat(document.getElementById('optYd').value) || 1.0;
-    options.cp = parseFloat(document.getElementById('optCp').value) || 0.84;
-    options.deltaHAt = parseFloat(document.getElementById('optDeltaHAt').value) || 1.760;
     const nozzlesStr = document.getElementById('optNozzles').value;
-    options.nozzles = nozzlesStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
-    saveOptions();
-    optionsModal.classList.add('hidden');
-    calculateAll();
+    if (nozzlesStr) {
+      const parsed = nozzlesStr.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n) && n > 0);
+      if (parsed.length > 0) state.options.nozzleList = parsed;
+    }
+
+    saveOptionsData();
+
+    // Update nozzle select dropdown options
+    const select = document.getElementById('nozzleQuickSelect');
+    select.innerHTML = `<option value="">등록 노즐선택 ▾</option>` +
+      state.options.nozzleList.map(n => `<option value="${n}">${n} mm</option>`).join('');
+
+    updateUI();
+    modal.classList.add('hidden');
+    alert('설정이 저장되었습니다.');
   });
-
-  // Initial Run
-  toggleDuctInputs();
-  calculateAll();
-  calculateMeasurementPoints();
-
-  // Register Service Worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('[PWA] SW registered:', reg.scope))
-      .catch(err => console.error('[PWA] SW register error:', err));
-  }
 }
 
-document.addEventListener('DOMContentLoaded', initApp);
+// Service Worker Registration for Offline PWA
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('SW Registered:', reg.scope))
+        .catch(err => console.log('SW Register failed:', err));
+    });
+  }
+
+  // PWA Install Prompt
+  let deferredPrompt;
+  const banner = document.getElementById('pwaInstallBanner');
+  const installBtn = document.getElementById('pwaInstallBtn');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    banner.classList.remove('hidden');
+  });
+
+  installBtn.addEventListener('click', () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the install prompt');
+        }
+        deferredPrompt = null;
+        banner.classList.add('hidden');
+      });
+    }
+  });
+}
+
+// Initialize App
+document.addEventListener('DOMContentLoaded', () => {
+  loadStoredData();
+  bindInputEvents();
+  setupSaveRecordModal();
+  setupLoadRecordsModal();
+  setupOptionsModal();
+  registerServiceWorker();
+  updateUI();
+});
