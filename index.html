@@ -330,83 +330,93 @@
 
     </div>
 
-    <!-- TAB 2: MOISTURE & GAS (Original Tab 2) -->
+    <!-- TAB 2: MOISTURE & GAS (Exact Match with Android App MoistureGasScreen.kt) -->
     <div id="tabMoisture" class="tab-page hidden">
+      <!-- Section 1: Inputs & Linked Parameters -->
       <div class="card-section">
-        <div class="section-header">💧 포화수분량 및 보정 수분량 계산</div>
-        <div class="grid-2">
-          <div class="input-field">
-            <label>가스메터 흡인량 (G-Vm)</label>
-            <div class="input-with-unit">
-              <input type="number" id="gvmVal" value="10.0" step="0.1" inputmode="decimal">
-              <select id="gvmUnit">
-                <option value="LITER" selected>L</option>
-                <option value="M3">m³</option>
-              </select>
-            </div>
+        <div class="section-header">💧 수분 및 가스 채취량 산출 (ES 01301.1e)</div>
+        <p class="section-subtitle" id="tab2InterlinkInfo">
+          기본 계산의 대기압 Pa(0.0 mmHg), 굴뚝온도 Ts(0.0 °C), 장비온도 Tm(0.0 °C) 값이 연동됩니다.
+        </p>
+
+        <!-- Pm Gas Gauge Pressure -->
+        <div class="unit-input-row">
+          <div class="input-field flex-grow">
+            <label>가스 게이지 압력 Pm</label>
+            <input type="number" id="pmVal" value="0.0" step="0.1" inputmode="decimal">
           </div>
-          <div class="input-field">
-            <label>가스메터 온도 (G-Tm)</label>
-            <div class="input-with-unit">
-              <input type="number" id="gtmVal" value="25.0" step="0.1" inputmode="decimal">
-              <select id="gtmUnit">
-                <option value="C" selected>°C</option>
-                <option value="F">°F</option>
-              </select>
-            </div>
+          <div class="unit-toggle-group">
+            <button class="unit-chip active" id="pmUnitInH2O" data-unit="INH2O">inH₂O</button>
+            <button class="unit-chip" id="pmUnitMmhg" data-unit="MMHG">mmHg</button>
           </div>
+          <div class="conversion-text" id="pmConvertedText">0.0 mmHg</div>
         </div>
-        <div class="grid-2">
-          <div class="input-field">
-            <label>대기압 (Pa)</label>
-            <div class="input-with-unit">
-              <input type="number" id="mPaVal" value="760.0" step="0.1" inputmode="decimal">
-              <span class="unit-tag">mmHg</span>
-            </div>
+
+        <!-- GTm Gas Meter Temp -->
+        <div class="unit-input-row">
+          <div class="input-field flex-grow">
+            <label>가스메터 온도 GTm</label>
+            <input type="number" id="gtmVal" placeholder="입력 안 함 시 미출력" step="0.1" inputmode="decimal">
           </div>
-          <div class="input-field">
-            <label>게이지압 (Pm)</label>
-            <div class="input-with-unit">
-              <input type="number" id="mPmVal" value="0.0" step="0.1" inputmode="decimal">
-              <span class="unit-tag">mmHg</span>
-            </div>
+          <div class="unit-toggle-group">
+            <button class="unit-chip active" id="gtmUnitC" data-unit="C">°C</button>
+            <button class="unit-chip" id="gtmUnitF" data-unit="F">°F</button>
           </div>
+          <div class="conversion-text" id="gtmConvertedText">-</div>
         </div>
-        <div class="grid-2">
-          <div class="input-field">
-            <label>포집 수분량 (ma)</label>
-            <div class="input-with-unit">
-              <input type="number" id="maVal" value="15.0" step="0.1" inputmode="decimal">
-              <span class="unit-tag">g</span>
-            </div>
+
+        <!-- GVm Gas Sampling Volume -->
+        <div class="unit-input-row">
+          <div class="input-field flex-grow">
+            <label>가스 채취량 GVm</label>
+            <input type="number" id="gvmVal" placeholder="입력 안 함 시 미출력" step="0.1" inputmode="decimal">
           </div>
-          <div class="input-field">
-            <label>배기가스 온도 (Ts)</label>
-            <div class="input-with-unit">
-              <input type="number" id="mTsVal" value="50.0" step="0.1" inputmode="decimal">
-              <span class="unit-tag">°C</span>
-            </div>
+          <div class="unit-toggle-group">
+            <button class="unit-chip active" id="gvmUnitLiter" data-unit="LITER">L</button>
+            <button class="unit-chip" id="gvmUnitM3" data-unit="M3">m³</button>
           </div>
+          <div class="conversion-text" id="gvmConvertedText">-</div>
         </div>
+
+        <!-- ma Moisture collected -->
         <div class="input-field">
-          <label>배기가스 정압 (Ps)</label>
-          <div class="input-with-unit">
-            <input type="number" id="mPsVal" value="-0.5" step="0.1" inputmode="decimal">
-            <span class="unit-tag">mmHg</span>
-          </div>
+          <label>수분 채취량 ma (g)</label>
+          <input type="number" id="maVal" placeholder="수분포집량 ma에 대한 Xw1 산출용" step="0.1" inputmode="decimal">
         </div>
       </div>
 
-      <div class="grid-2">
-        <div class="core-card card-secondary">
-          <div class="core-card-title">포화수분량 (Xw2)</div>
-          <div class="core-card-value"><span id="resXw2">0.0</span> <span class="unit">%</span></div>
-          <div class="core-card-sub">포화 수증기압: <b id="resPv">0</b> mmHg</div>
+      <!-- Section 2: Moisture Results Card -->
+      <div class="card-section highlight-section">
+        <div class="section-header">📊 채취량 및 수분 산출 결과</div>
+
+        <!-- L0 Display Box -->
+        <div id="l0Box" class="l0-result-card hidden">
+          <span class="l0-label">표준 가스채취량 (L0):</span>
+          <span class="l0-value" id="resL0">0.00 L</span>
         </div>
-        <div class="core-card card-primary">
-          <div class="core-card-title">역산 수분량 (Xw1)</div>
-          <div class="core-card-value"><span id="resXw1">0.0</span> <span class="unit">%</span></div>
-          <div class="core-card-sub">건조가스량: <b id="resVmStd">0</b> L</div>
+        <div id="l0Notice" class="l0-notice-text">
+          ℹ️ GTm(가스메터온도) 및 GVm(채취량) 입력 시 L0 결과가 출력됩니다.
+        </div>
+
+        <hr class="divider">
+
+        <div class="ref-table">
+          <div class="ref-row">
+            <span class="label">포화 수증기압 (Pv):</span>
+            <span class="value" id="resPv">0.00 mmHg</span>
+          </div>
+          <div class="ref-row">
+            <span class="label">포화 수증기 수분 (Xw2):</span>
+            <span class="value highlight-primary" id="resXw2">0.0 %</span>
+          </div>
+          <div class="ref-row">
+            <span class="label">수분량 Xw 입력에 의한 ma1 계산값:</span>
+            <span class="value" id="resMa1">0.00 g</span>
+          </div>
+          <div id="xw1Row" class="ref-row hidden">
+            <span class="label bold">수분포집량 ma에 대한 Xw1 값:</span>
+            <span class="value highlight-secondary" id="resXw1">0.0 %</span>
+          </div>
         </div>
       </div>
     </div>

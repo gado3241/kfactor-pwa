@@ -227,6 +227,58 @@ body {
   gap: 0.35rem;
 }
 
+.section-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: -0.25rem;
+}
+
+.l0-result-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.2rem;
+}
+
+.l0-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.l0-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.l0-notice-text {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding: 0.2rem 0;
+  line-height: 1.4;
+}
+
+.highlight-primary {
+  color: var(--primary) !important;
+  font-weight: 800 !important;
+}
+
+.highlight-secondary {
+  color: #d97706 !important;
+  font-weight: 800 !important;
+  font-size: 1.05rem !important;
+}
+
+.bold {
+  font-weight: 800 !important;
+}
+
 .input-subheading {
   font-size: 0.82rem;
   font-weight: 700;
