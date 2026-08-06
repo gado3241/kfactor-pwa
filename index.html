@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>대기질 먼지측정 반자동식 계산기 (PWA)</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#2563EB">
+  <link rel="stylesheet" href="./styles.css">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="먼지측정계산기">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-title">
+      <h1>대기질 먼지측정 반자동식 PWA</h1>
+      <p>환경부 ES 01301.1e 표준 계산기 v3.0</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-icon" id="openOptionsBtn">⚙️ 옵션</button>
+    </div>
+  </header>
+
+  <!-- PWA Install Banner -->
+  <div id="pwaInstallBanner" class="pwa-install-banner hidden">
+    <span>📲 홈 화면에 앱으로 설치하여 오프라인에서 사용하세요!</span>
+    <button id="pwaInstallBtn" class="btn-install">설치하기</button>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <nav class="tabs">
+    <div class="tab active" data-target="tabKFactor">1. K-Factor & 등속흡인</div>
+    <div class="tab" data-target="tabMoisture">2. 수분량 & 포화수분</div>
+    <div class="tab" data-target="tabPoints">3. 측정점 선정</div>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main class="main-content">
+
+    <!-- TAB 1: K-FACTOR & ISOKINETIC -->
+    <div id="tabKFactor" class="tab-content">
+
+      <!-- Output Hero Section -->
+      <div class="result-hero-card">
+        <div class="result-hero-label">오리피스 압력차 (ΔH)</div>
+        <div class="result-hero-value" id="resDeltaH">0.0 mmH2O</div>
+        <div class="result-hero-sub" id="resDeltaHSub">환산 → 0.0 inH2O (0.0 mmHg)</div>
+        <div class="result-hero-sub" style="margin-top:0.5rem;">K-Factor (Kf): <b id="resKf">0.00</b></div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <div class="result-grid-card">
+          <div class="title">등속흡인율 (I)</div>
+          <div class="val" id="resIsokinetic">0.0%</div>
+          <div id="resIsokineticBadge" class="badge badge-success">✅ 정상</div>
+        </div>
+        <div class="result-grid-card">
+          <div class="title">목표 채취량 (Vm)</div>
+          <div class="val" id="resVmLiter">0.0 L</div>
+          <div class="sub">실제 유속 <span id="resVs">0.0</span> m/s</div>
+        </div>
+      </div>
+
+      <!-- Inputs: 배출가스 성분 -->
+      <div class="section-card">
+        <div class="section-title">🧪 배출가스 성분 및 수분량</div>
+        <div class="grid-3">
+          <div class="input-group"><label>O₂ 1차 (%)</label><div class="input-wrapper"><input type="number" id="o2_1" value="12.0" step="0.1"></div></div>
+          <div class="input-group"><label>O₂ 2차 (%)</label><div class="input-wrapper"><input type="number" id="o2_2" value="12.0" step="0.1"></div></div>
+          <div class="input-group"><label>O₂ 3차 (%)</label><div class="input-wrapper"><input type="number" id="o2_3" value="12.0" step="0.1"></div></div>
+        </div>
+        <div class="grid-3">
+          <div class="input-group"><label>CO₂ 1차 (%)</label><div class="input-wrapper"><input type="number" id="co2_1" value="8.0" step="0.1"></div></div>
+          <div class="input-group"><label>CO₂ 2차 (%)</label><div class="input-wrapper"><input type="number" id="co2_2" value="8.0" step="0.1"></div></div>
+          <div class="input-group"><label>CO₂ 3차 (%)</label><div class="input-wrapper"><input type="number" id="co2_3" value="8.0" step="0.1"></div></div>
+        </div>
+        <div class="input-group">
+          <label>수분량 Xw (%)</label>
+          <div class="input-wrapper"><input type="number" id="xw" value="10.0" step="0.1"><span class="unit">%</span></div>
+        </div>
+      </div>
+
+      <!-- Inputs: 온도 & 압력 -->
+      <div class="section-card">
+        <div class="section-title">🌡️ 배출가스 온도 및 압력</div>
+        <div class="grid-2">
+          <div class="input-group">
+            <label>배기가스 온도 (Ts)</label>
+            <div class="input-wrapper">
+              <input type="number" id="tsVal" value="120.0" step="1">
+              <select id="tsUnit"><option value="C" selected>°C</option><option value="F">°F</option></select>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>가스메터 온도 (Tm)</label>
+            <div class="input-wrapper">
+              <input type="number" id="tmVal" value="25.0" step="1">
+              <select id="tmUnit"><option value="C" selected>°C</option><option value="F">°F</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group">
+            <label>대기압 (Pa)</label>
+            <div class="input-wrapper">
+              <input type="number" id="paVal" value="760.0" step="0.1">
+              <select id="paUnit"><option value="MMHG" selected>mmHg</option><option value="HPA">hPa</option></select>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>정압 (Ps)</label>
+            <div class="input-wrapper">
+              <input type="number" id="psVal" value="-10.0" step="0.1">
+              <select id="psUnit"><option value="INH2O" selected>inH₂O</option><option value="MMHG">mmHg</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Inputs: 동압 & 노즐 -->
+      <div class="section-card">
+        <div class="section-title">📐 피토관 동압 및 채취 조건</div>
+        <div class="grid-2">
+          <div class="input-group">
+            <label>피토관 동압 (h)</label>
+            <div class="input-wrapper">
+              <input type="number" id="hVal" value="10.0" step="0.1">
+              <select id="hUnit"><option value="MMH2O" selected>mmH₂O</option><option value="INH2O">inH₂O</option></select>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>노즐 구경 (Dn)</label>
+            <div class="input-wrapper"><input type="number" id="dn" value="8.0" step="0.1"><span class="unit">mm</span></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group">
+            <label>채취 시간 (Time)</label>
+            <div class="input-wrapper"><input type="number" id="time" value="30.0" step="1"><span class="unit">분</span></div>
+          </div>
+          <div class="input-group">
+            <label>실제 흡인 가스량 (Vm)</label>
+            <div class="input-wrapper">
+              <input type="number" id="actualVmVal" value="450.0" step="1">
+              <select id="actualVmUnit"><option value="LITER" selected>L</option><option value="FT3">ft³</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="input-group">
+          <label>덕트 형태 및 크기</label>
+          <div class="grid-3">
+            <select id="ductType"><option value="CIRCULAR" selected>원형</option><option value="RECTANGULAR">사각</option></select>
+            <input type="number" id="ds" value="1.0" placeholder="직경 (m)" step="0.1">
+            <input type="number" id="ds1" value="1.0" placeholder="가로 (m)" step="0.1" style="display:none;">
+            <input type="number" id="ds2" value="1.0" placeholder="세로 (m)" step="0.1" style="display:none;">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: MOISTURE & SATURATION -->
+    <div id="tabMoisture" class="tab-content hidden">
+      <div class="section-card">
+        <div class="section-title">💧 포화수분량 및 보정 수분량 계산</div>
+        <div class="grid-2">
+          <div class="input-group">
+            <label>가스메터 흡인량 (G-Vm)</label>
+            <div class="input-wrapper">
+              <input type="number" id="gvmVal" value="30.0" step="1">
+              <select id="gvmUnit"><option value="LITER" selected>L</option><option value="M3">m³</option></select>
+            </div>
+          </div>
+          <div class="input-group">
+            <label>가스메터 온도 (G-Tm)</label>
+            <div class="input-wrapper"><input type="number" id="gtmVal" value="25.0" step="1"><span class="unit">°C</span></div>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label>대기압 (Pa)</label><div class="input-wrapper"><input type="number" id="mPaVal" value="760.0" step="1"><span class="unit">mmHg</span></div></div>
+          <div class="input-group"><label>게이지압 (Pm)</label><div class="input-wrapper"><input type="number" id="mPmVal" value="0.0" step="1"><span class="unit">mmHg</span></div></div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label>포집 수분량 (ma)</label><div class="input-wrapper"><input type="number" id="maVal" value="15.0" step="0.1"><span class="unit">g</span></div></div>
+          <div class="input-group"><label>배기가스 온도 (Ts)</label><div class="input-wrapper"><input type="number" id="mTsVal" value="80.0" step="1"><span class="unit">°C</span></div></div>
+        </div>
+        <div class="input-group"><label>배기가스 정압 (Ps)</label><div class="input-wrapper"><input type="number" id="mPsVal" value="-10.0" step="1"><span class="unit">mmHg</span></div></div>
+      </div>
+
+      <div class="grid-2">
+        <div class="result-grid-card">
+          <div class="title">포화수분량 (Xw2)</div>
+          <div class="val" id="resXw2">0.0%</div>
+          <div class="sub">포화 수증기압: <span id="resPv">0</span></div>
+        </div>
+        <div class="result-grid-card">
+          <div class="title">역산 수분량 (Xw1)</div>
+          <div class="val" id="resXw1">0.0%</div>
+          <div class="sub">건조가스량: <span id="resVmStd">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: MEASUREMENT POINTS -->
+    <div id="tabPoints" class="tab-content hidden">
+      <div class="section-card">
+        <div class="section-title">📍 ES 01301.1e 측정점 선정</div>
+        <div class="input-group">
+          <label>덕트 종류</label>
+          <div class="input-wrapper">
+            <select id="ptDuctType">
+              <option value="CIRCULAR" selected>원형 덕트</option>
+              <option value="RECTANGULAR">사각형 덕트</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="input-group"><label>직경 또는 가로 (m)</label><div class="input-wrapper"><input type="number" id="ptVal1" value="1.2" step="0.1"><span class="unit">m</span></div></div>
+          <div class="input-group"><label>세로 (m, 사각 전용)</label><div class="input-wrapper"><input type="number" id="ptVal2" value="1.0" step="0.1"><span class="unit">m</span></div></div>
+        </div>
+      </div>
+
+      <div class="result-hero-card">
+        <div class="result-hero-label">총 측정점 수</div>
+        <div class="result-hero-value" id="resPtTotal">4개소</div>
+        <div class="result-hero-sub" id="resPtDiv">1분할 (2지질선 × 2점)</div>
+        <div class="result-hero-sub" id="resPtDetail" style="margin-top:0.5rem; font-size:0.8rem;"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Options Modal -->
+  <div id="optionsModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ 계산기 상수 설정</div>
+        <button id="closeOptionsBtn" class="btn-close">✕</button>
+      </div>
+      <div class="input-group">
+        <label>가스메터 보정계수 (Yd)</label>
+        <div class="input-wrapper"><input type="number" id="optYd" step="0.001"></div>
+      </div>
+      <div class="input-group">
+        <label>피토관 계수 (Cp)</label>
+        <div class="input-wrapper"><input type="number" id="optCp" step="0.001"></div>
+      </div>
+      <div class="input-group">
+        <label>오리피스 압력차 계수 (ΔH@)</label>
+        <div class="input-wrapper"><input type="number" id="optDeltaHAt" step="0.001"></div>
+      </div>
+      <div class="input-group">
+        <label>사용 가능 노즐 목록 (mm, 쉼표 구분)</label>
+        <div class="input-wrapper"><input type="text" id="optNozzles"></div>
+      </div>
+      <button id="saveOptionsBtn" class="btn-primary">저장하기</button>
+    </div>
+  </div>
+
+  <footer>
+    대기질 먼지측정 반자동식 계산기 PWA App | 환경부 ES 01301.1e 준수
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>

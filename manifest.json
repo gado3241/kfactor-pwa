@@ -1,0 +1,25 @@
+{
+  "name": "대기질 먼지측정 반자동식 계산기",
+  "short_name": "먼지측정계산기",
+  "description": "환경부 대기오염공정시험기준 ES 01301.1e 기반 먼지측정 K-Factor 및 등속흡인 PWA 계산기",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#2563EB",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
