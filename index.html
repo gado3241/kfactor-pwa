@@ -356,26 +356,26 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>가스메터 온도 GTm</label>
-            <input type="number" id="gtmVal" placeholder="입력 안 함 시 미출력" step="0.1" inputmode="decimal">
+            <input type="number" id="gtmVal" value="25.0" placeholder="25.0" step="0.1" inputmode="decimal">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="gtmUnitC" data-unit="C">°C</button>
             <button class="unit-chip" id="gtmUnitF" data-unit="F">°F</button>
           </div>
-          <div class="conversion-text" id="gtmConvertedText">-</div>
+          <div class="conversion-text" id="gtmConvertedText">77.0 °F</div>
         </div>
 
         <!-- GVm Gas Sampling Volume -->
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>가스 채취량 GVm</label>
-            <input type="number" id="gvmVal" placeholder="입력 안 함 시 미출력" step="0.1" inputmode="decimal">
+            <input type="number" id="gvmVal" value="10.0" placeholder="10.0" step="0.1" inputmode="decimal">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="gvmUnitLiter" data-unit="LITER">L</button>
             <button class="unit-chip" id="gvmUnitM3" data-unit="M3">m³</button>
           </div>
-          <div class="conversion-text" id="gvmConvertedText">-</div>
+          <div class="conversion-text" id="gvmConvertedText">0.010 m³</div>
         </div>
 
         <!-- ma Moisture collected -->
@@ -390,12 +390,9 @@
         <div class="section-header">📊 채취량 및 수분 산출 결과</div>
 
         <!-- L0 Display Box -->
-        <div id="l0Box" class="l0-result-card hidden">
+        <div id="l0Box" class="l0-result-card">
           <span class="l0-label">표준 가스채취량 (L0):</span>
-          <span class="l0-value" id="resL0">0.00 L</span>
-        </div>
-        <div id="l0Notice" class="l0-notice-text">
-          ℹ️ GTm(가스메터온도) 및 GVm(채취량) 입력 시 L0 결과가 출력됩니다.
+          <span class="l0-value" id="resL0">9.07 L</span>
         </div>
 
         <hr class="divider">

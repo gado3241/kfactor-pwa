@@ -35,8 +35,8 @@ const state = {
 
   // Tab 2 inputs
   pmVal: 0.0, pmUnit: 'INH2O', // 'INH2O' or 'MMHG'
-  gtmVal: '', gtmUnit: 'C', // 'C' or 'F'
-  gvmVal: '', gvmUnit: 'LITER', // 'LITER' or 'M3'
+  gtmVal: 25.0, gtmUnit: 'C', // 'C' or 'F'
+  gvmVal: 10.0, gvmUnit: 'LITER', // 'LITER' or 'M3'
   maVal: '',
 
   // Options Constants
@@ -282,35 +282,27 @@ function calculateMoistureAndGas() {
   const psInmmHg = res.psInmmHg;
   const tsInC = res.tsInC;
   const tmInC = res.tmInC;
-  const xwInput = state.xw;
+  const xwInput = state.xw !== null && state.xw !== '' && !isNaN(parseFloat(state.xw)) ? parseFloat(state.xw) : 1.2;
 
-  // 1. Pm conversion
-  const pmValNum = state.pmVal !== null && state.pmVal !== '' ? parseFloat(state.pmVal) : 0.0;
+  // 1. Pm conversion (fallback 0.0)
+  const pmValNum = state.pmVal !== null && state.pmVal !== '' && !isNaN(parseFloat(state.pmVal)) ? parseFloat(state.pmVal) : 0.0;
   const pmInmmHg = state.pmUnit === 'MMHG' ? pmValNum : (pmValNum * 25.4 / 13.6);
   const pmInInH2O = state.pmUnit === 'INH2O' ? pmValNum : (pmValNum * 13.6 / 25.4);
 
-  // 2. GTm conversion
-  const gtmValNum = state.gtmVal !== null && state.gtmVal !== '' && !isNaN(parseFloat(state.gtmVal)) ? parseFloat(state.gtmVal) : null;
-  let gtmInC = null;
-  let gtmInF = null;
-  if (gtmValNum !== null) {
-    gtmInC = state.gtmUnit === 'C' ? gtmValNum : excelRound((gtmValNum - 32.0) / 1.8, 1);
-    gtmInF = state.gtmUnit === 'F' ? gtmValNum : (gtmValNum * 1.8 + 32.0);
-  }
+  // 2. GTm conversion (fallback 25.0 °C if unentered)
+  const gtmValNum = state.gtmVal !== null && state.gtmVal !== '' && !isNaN(parseFloat(state.gtmVal)) ? parseFloat(state.gtmVal) : 25.0;
+  const gtmInC = state.gtmUnit === 'C' ? gtmValNum : excelRound((gtmValNum - 32.0) / 1.8, 1);
+  const gtmInF = state.gtmUnit === 'F' ? gtmValNum : (gtmValNum * 1.8 + 32.0);
 
-  // 3. GVm conversion
-  const gvmValNum = state.gvmVal !== null && state.gvmVal !== '' && !isNaN(parseFloat(state.gvmVal)) ? parseFloat(state.gvmVal) : null;
-  let gvmInL = null;
-  let gvmInM3 = null;
-  if (gvmValNum !== null) {
-    gvmInL = state.gvmUnit === 'LITER' ? gvmValNum : gvmValNum * 1000.0;
-    gvmInM3 = state.gvmUnit === 'M3' ? gvmValNum : gvmValNum / 1000.0;
-  }
+  // 3. GVm conversion (fallback 10.0 L if unentered)
+  const gvmValNum = state.gvmVal !== null && state.gvmVal !== '' && !isNaN(parseFloat(state.gvmVal)) ? parseFloat(state.gvmVal) : 10.0;
+  const gvmInL = state.gvmUnit === 'LITER' ? gvmValNum : gvmValNum * 1000.0;
+  const gvmInM3 = state.gvmUnit === 'M3' ? gvmValNum : gvmValNum / 1000.0;
 
-  // 4. ma conversion
+  // 4. ma conversion (null if unentered or empty string)
   const maInG = state.maVal !== null && state.maVal !== '' && !isNaN(parseFloat(state.maVal)) ? parseFloat(state.maVal) : null;
 
-  // 5. Saturated Vapor Pressure Pv (mmHg) at Ts
+  // 5. Saturated Vapor Pressure Pv (mmHg) at Ts (°C) per Sonntag 1990 (ITS-90)
   let pv = 4.58;
   if (tsInC <= 0.0) {
     pv = 4.58;
@@ -324,18 +316,15 @@ function calculateMoistureAndGas() {
     pv = excelRound(pvMmHg, 2);
   }
 
-  // 6. Xw2 (%)
+  // 6. Saturated Moisture Xw2 (%) = ROUND(Pv / (Pa + Ps) * 100, 1)
   const xw2 = (paInmmHg + psInmmHg) !== 0 ? excelRound(pv / (paInmmHg + psInmmHg) * 100.0, 1) : 0.0;
 
-  // 7. L0 (표준 가스채취량)
-  let l0 = null;
-  if (gtmInC !== null && gvmInL !== null) {
-    l0 = excelRound((gvmInL * 273.0 / (273.0 + gtmInC) * (paInmmHg + pmInmmHg)) / 760.0, 2);
-  }
+  // 7. L0 (표준 가스채취량) = ROUND((GVm * 273 / (273 + GTm) * (Pa + Pm)) / 760, 2)
+  const l0 = excelRound((gvmInL * 273.0 / (273.0 + gtmInC) * (paInmmHg + pmInmmHg)) / 760.0, 2);
 
   // 8. ma1 calculation
-  const targetGtm = gtmInC !== null ? gtmInC : tmInC;
-  const targetGvm = gvmInL !== null ? gvmInL : 40.0;
+  const targetGtm = gtmInC;
+  const targetGvm = gvmInL;
   const gtmDoubleRound = excelRound(excelRound(targetGtm, 1), 0);
   const denomTemp = 273.0 + gtmDoubleRound;
   const denomXw = (100.0 - xwInput) * 22.4 / 18.0;
@@ -478,37 +467,24 @@ function updateUI() {
     // GTm Converted Text
     const gtmConvEl = document.getElementById('gtmConvertedText');
     if (gtmConvEl) {
-      if (moistureRes.gtmInC !== null && moistureRes.gtmInF !== null) {
-        gtmConvEl.textContent = state.gtmUnit === 'C' ?
-          `${excelRound(moistureRes.gtmInF, 1)} °F` :
-          `${excelRound(moistureRes.gtmInC, 1)} °C`;
-      } else {
-        gtmConvEl.textContent = '-';
-      }
+      gtmConvEl.textContent = state.gtmUnit === 'C' ?
+        `${excelRound(moistureRes.gtmInF, 1)} °F` :
+        `${excelRound(moistureRes.gtmInC, 1)} °C`;
     }
 
     // GVm Converted Text
     const gvmConvEl = document.getElementById('gvmConvertedText');
     if (gvmConvEl) {
-      if (moistureRes.gvmInL !== null && moistureRes.gvmInM3 !== null) {
-        gvmConvEl.textContent = state.gvmUnit === 'LITER' ?
-          `${excelRound(moistureRes.gvmInM3, 3)} m³` :
-          `${excelRound(moistureRes.gvmInL, 1)} L`;
-      } else {
-        gvmConvEl.textContent = '-';
-      }
+      gvmConvEl.textContent = state.gvmUnit === 'LITER' ?
+        `${excelRound(moistureRes.gvmInM3, 3)} m³` :
+        `${excelRound(moistureRes.gvmInL, 1)} L`;
     }
 
     // L0 Result Box
     const l0BoxEl = document.getElementById('l0Box');
-    const l0NoticeEl = document.getElementById('l0Notice');
-    if (moistureRes.l0 !== null) {
+    if (l0BoxEl) {
       l0BoxEl.classList.remove('hidden');
-      l0NoticeEl.classList.add('hidden');
       document.getElementById('resL0').textContent = `${moistureRes.l0.toFixed(2)} L`;
-    } else {
-      l0BoxEl.classList.add('hidden');
-      l0NoticeEl.classList.remove('hidden');
     }
 
     // Pv, Xw2, ma1
