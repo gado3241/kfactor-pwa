@@ -482,9 +482,14 @@ function updateUI() {
 
     // L0 Result Box
     const l0BoxEl = document.getElementById('l0Box');
-    if (l0BoxEl) {
-      l0BoxEl.classList.remove('hidden');
+    const l0NoticeEl = document.getElementById('l0Notice');
+    if (moistureRes.l0 !== null) {
+      if (l0BoxEl) l0BoxEl.classList.remove('hidden');
+      if (l0NoticeEl) l0NoticeEl.classList.add('hidden');
       document.getElementById('resL0').textContent = `${moistureRes.l0.toFixed(2)} L`;
+    } else {
+      if (l0BoxEl) l0BoxEl.classList.add('hidden');
+      if (l0NoticeEl) l0NoticeEl.classList.remove('hidden');
     }
 
     // Pv, Xw2, ma1
