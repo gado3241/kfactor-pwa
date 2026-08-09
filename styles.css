@@ -96,11 +96,23 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+.header-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
 .header-info h1 {
   font-size: 1.05rem;
   font-weight: 800;
-  color: var(--primary);
+  color: var(--text-main);
   letter-spacing: -0.02em;
+}
+
+.version-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--primary);
 }
 
 .header-info p {
