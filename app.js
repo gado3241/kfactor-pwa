@@ -589,10 +589,6 @@ function bindInputEvents() {
       document.getElementById(targetId).classList.remove('hidden');
     });
   });
-
-  // Tab 2 selects
-  document.getElementById('gvmUnit').addEventListener('change', (e) => { state.gvmUnit = e.target.value; updateUI(); });
-  document.getElementById('gtmUnit').addEventListener('change', (e) => { state.gtmUnit = e.target.value; updateUI(); });
 }
 
 function bindUnitToggle(btn1Id, btn2Id, onSelect) {
