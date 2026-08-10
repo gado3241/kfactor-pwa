@@ -55,15 +55,15 @@
         <div class="grid-3">
           <div class="input-field">
             <label>O₂ 1차</label>
-            <input type="text" id="o2_1" value="20.9" inputmode="decimal">
+            <input type="text" id="o2_1" value="20.9" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="input-field">
             <label>O₂ 2차</label>
-            <input type="text" id="o2_2" value="20.9" inputmode="decimal">
+            <input type="text" id="o2_2" value="20.9" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="input-field">
             <label>O₂ 3차</label>
-            <input type="text" id="o2_3" value="20.9" inputmode="decimal">
+            <input type="text" id="o2_3" value="20.9" inputmode="tel" pattern="[0-9\.-]*">
           </div>
         </div>
 
@@ -72,15 +72,15 @@
         <div class="grid-3">
           <div class="input-field">
             <label>CO₂ 1차</label>
-            <input type="text" id="co2_1" value="0.0" inputmode="decimal">
+            <input type="text" id="co2_1" value="0.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="input-field">
             <label>CO₂ 2차</label>
-            <input type="text" id="co2_2" value="0.0" inputmode="decimal">
+            <input type="text" id="co2_2" value="0.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="input-field">
             <label>CO₂ 3차</label>
-            <input type="text" id="co2_3" value="0.0" inputmode="decimal">
+            <input type="text" id="co2_3" value="0.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
         </div>
 
@@ -88,7 +88,7 @@
         <div class="input-row-with-badge">
           <div class="input-field flex-grow">
             <label>표준산소농도 Os (%) [0일 때 산소보정 미적용]</label>
-            <input type="text" id="os" value="0.0" inputmode="decimal">
+            <input type="text" id="os" value="0.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div id="o2CorrectionBadge" class="status-badge badge-neutral">산소보정 미적용</div>
         </div>
@@ -96,7 +96,7 @@
         <!-- Xw moisture -->
         <div class="input-field">
           <label>수분량 Xw (%)</label>
-          <input type="text" id="xw" value="1.2" inputmode="decimal">
+          <input type="text" id="xw" value="1.2" inputmode="tel" pattern="[0-9\.-]*">
         </div>
       </div>
 
@@ -108,7 +108,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>굴뚝온도 Ts</label>
-            <input type="text" id="tsVal" value="50.0" inputmode="decimal">
+            <input type="text" id="tsVal" value="50.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="tsUnitC" data-unit="C">°C</button>
@@ -121,7 +121,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>대기압 Pa</label>
-            <input type="text" id="paVal" value="1013.0" inputmode="decimal">
+            <input type="text" id="paVal" value="1013.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="paUnitHpa" data-unit="HPA">hPa</button>
@@ -134,7 +134,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>정압 Ps</label>
-            <input type="text" id="psVal" value="-0.5" inputmode="decimal">
+            <input type="text" id="psVal" value="-0.5" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="psUnitInH2O" data-unit="INH2O">inH₂O</button>
@@ -147,7 +147,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>동압 h</label>
-            <input type="text" id="hVal" value="0.5" inputmode="decimal">
+            <input type="text" id="hVal" value="0.5" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="hUnitInH2O" data-unit="INH2O">inH₂O</button>
@@ -160,7 +160,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>장비온도 Tm</label>
-            <input type="text" id="tmVal" value="25.0" inputmode="decimal">
+            <input type="text" id="tmVal" value="25.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="tmUnitC" data-unit="C">°C</button>
@@ -179,17 +179,17 @@
 
         <div id="circularDuctBox" class="input-field">
           <label>원형 굴뚝 직경 Ds (m)</label>
-          <input type="text" id="ds" value="1.0" inputmode="decimal">
+          <input type="text" id="ds" value="1.0" inputmode="tel" pattern="[0-9\.-]*">
         </div>
 
         <div id="rectangularDuctBox" class="grid-2 hidden">
           <div class="input-field">
             <label>가로길이 Ds1 (m)</label>
-            <input type="text" id="ds1" value="1.0" inputmode="decimal">
+            <input type="text" id="ds1" value="1.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="input-field">
             <label>세로길이 Ds2 (m)</label>
-            <input type="text" id="ds2" value="1.0" inputmode="decimal">
+            <input type="text" id="ds2" value="1.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
         </div>
 
@@ -225,7 +225,7 @@
         <div class="nozzle-row">
           <div class="input-field flex-grow">
             <label>노즐직경 Dn (mm)</label>
-            <input type="text" id="dn" value="6.35" inputmode="decimal">
+            <input type="text" id="dn" value="6.35" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="nozzle-select-wrapper">
             <select id="nozzleQuickSelect" class="select-chip">
@@ -242,7 +242,7 @@
         <!-- Sampling time -->
         <div class="input-field">
           <label>채취시간 Time (min)</label>
-          <input type="text" id="time" value="30.0" inputmode="decimal">
+          <input type="text" id="time" value="30.0" inputmode="tel" pattern="[0-9\.-]*">
         </div>
 
         <!-- Actual Vm Input & Vm0 Display -->
@@ -250,7 +250,7 @@
           <div class="unit-input-row no-margin">
             <div class="input-field flex-grow">
               <label>실제 Vm 입력 (L 계산용)</label>
-              <input type="text" id="actualVmVal" value="0.0" inputmode="decimal">
+              <input type="text" id="actualVmVal" value="0.0" inputmode="tel" pattern="[0-9\.-]*">
             </div>
             <div class="unit-toggle-group">
               <button class="unit-chip active" id="vmUnitLiter" data-unit="LITER">L</button>
@@ -346,7 +346,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>가스 게이지 압력 Pm</label>
-            <input type="text" id="pmVal" value="0.0" inputmode="decimal">
+            <input type="text" id="pmVal" value="0.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="pmUnitInH2O" data-unit="INH2O">inH₂O</button>
@@ -359,7 +359,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>가스메터 온도 GTm</label>
-            <input type="text" id="gtmVal" value="25.0" placeholder="25.0" inputmode="decimal">
+            <input type="text" id="gtmVal" value="25.0" placeholder="25.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="gtmUnitC" data-unit="C">°C</button>
@@ -372,7 +372,7 @@
         <div class="unit-input-row">
           <div class="input-field flex-grow">
             <label>가스 채취량 GVm</label>
-            <input type="text" id="gvmVal" value="10.0" placeholder="10.0" inputmode="decimal">
+            <input type="text" id="gvmVal" value="10.0" placeholder="10.0" inputmode="tel" pattern="[0-9\.-]*">
           </div>
           <div class="unit-toggle-group">
             <button class="unit-chip active" id="gvmUnitLiter" data-unit="LITER">L</button>
@@ -384,7 +384,7 @@
         <!-- ma Moisture collected -->
         <div class="input-field">
           <label>수분 채취량 ma (g)</label>
-          <input type="text" id="maVal" placeholder="수분포집량 ma에 대한 Xw1 산출용" inputmode="decimal">
+          <input type="text" id="maVal" placeholder="수분포집량 ma에 대한 Xw1 산출용" inputmode="tel" pattern="[0-9\.-]*">
         </div>
       </div>
 
@@ -503,15 +503,15 @@
       </div>
       <div class="input-field">
         <label>가스메터 보정계수 (Yd)</label>
-        <input type="text" id="optYd" inputmode="decimal">
+        <input type="text" id="optYd" inputmode="tel" pattern="[0-9\.-]*">
       </div>
       <div class="input-field">
         <label>피토관 계수 (Cp)</label>
-        <input type="text" id="optCp" inputmode="decimal">
+        <input type="text" id="optCp" inputmode="tel" pattern="[0-9\.-]*">
       </div>
       <div class="input-field">
         <label>오리피스 압력차 계수 (ΔH@)</label>
-        <input type="text" id="optDeltaHAt" inputmode="decimal">
+        <input type="text" id="optDeltaHAt" inputmode="tel" pattern="[0-9\.-]*">
       </div>
       <div class="input-field">
         <label>빠른 노즐 목록 (mm, 쉼표 구분)</label>
