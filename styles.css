@@ -1022,3 +1022,78 @@ footer {
   color: var(--text-muted);
   border-top: 1px solid var(--border);
 }
+
+/* Floating Mobile Keyboard Input Accessory Bar */
+.keyboard-input-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  background: var(--surface-card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  transition: opacity 0.15s ease;
+}
+
+.keyboard-input-bar.hidden {
+  display: none !important;
+}
+
+.kbd-bar-left, .kbd-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.kbd-btn {
+  height: 38px;
+  padding: 0 0.65rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-variant);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.kbd-btn:active {
+  transform: scale(0.95);
+  background: var(--border);
+}
+
+.kbd-btn-primary {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  border-color: var(--primary);
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.kbd-btn-nav {
+  background: var(--surface-card);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.kbd-btn-done {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0 0.85rem;
+}

@@ -525,7 +525,7 @@ function bindInputEvents() {
       if (id === 'gtmVal' || id === 'gvmVal' || id === 'maVal') {
         state[id] = raw;
       } else {
-        state[id] = raw !== '' ? parseFloat(raw) : 0.0;
+        state[id] = (raw !== '' && raw !== '-' && !isNaN(parseFloat(raw))) ? parseFloat(raw) : 0.0;
       }
       if (id === 'actualVmVal') {
         state.isActualVmManuallyEdited = true;
@@ -534,11 +534,100 @@ function bindInputEvents() {
     });
   });
 
-  // Attach Focus Auto-Select and Enter-Key Navigation to all number/text inputs
+  // Floating Keyboard Accessory Bar Handlers
+  const kbdBar = document.getElementById('keyboardInputBar');
+  const kbdBtnSign = document.getElementById('kbdBtnSign');
+  const kbdBtnMinus = document.getElementById('kbdBtnMinus');
+  const kbdBtnDot = document.getElementById('kbdBtnDot');
+  const kbdBtnPrev = document.getElementById('kbdBtnPrev');
+  const kbdBtnNext = document.getElementById('kbdBtnNext');
+  const kbdBtnDone = document.getElementById('kbdBtnDone');
+
+  let activeInput = null;
+
+  function getVisibleInputs() {
+    const parent = activeInput ? (activeInput.closest('.tab-page') || activeInput.closest('.modal-content') || document) : document;
+    return Array.from(parent.querySelectorAll('input[type="number"], input[type="text"]'))
+      .filter(inp => inp.offsetParent !== null && !inp.disabled && !inp.readOnly);
+  }
+
+  function toggleActiveSign() {
+    if (!activeInput) return;
+    let val = activeInput.value.trim();
+    if (val.startsWith('-')) {
+      val = val.substring(1);
+    } else {
+      val = '-' + val;
+    }
+    activeInput.value = val;
+    activeInput.dataset.fresh = 'false';
+    activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    setTimeout(() => { try { activeInput.focus(); } catch (e) {} }, 10);
+  }
+
+  function insertActiveMinus() {
+    if (!activeInput) return;
+    let val = activeInput.value.trim();
+    if (!val.startsWith('-')) {
+      val = '-' + val;
+    }
+    activeInput.value = val;
+    activeInput.dataset.fresh = 'false';
+    activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    setTimeout(() => { try { activeInput.focus(); } catch (e) {} }, 10);
+  }
+
+  function insertActiveDot() {
+    if (!activeInput) return;
+    let val = activeInput.value;
+    if (!val.includes('.')) {
+      activeInput.value = val + '.';
+      activeInput.dataset.fresh = 'false';
+      activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    setTimeout(() => { try { activeInput.focus(); } catch (e) {} }, 10);
+  }
+
+  function navInput(direction) {
+    if (!activeInput) return;
+    const inputs = getVisibleInputs();
+    const idx = inputs.indexOf(activeInput);
+    const targetIdx = idx + direction;
+    if (targetIdx >= 0 && targetIdx < inputs.length) {
+      const nextInp = inputs[targetIdx];
+      nextInp.focus();
+      nextInp.dataset.fresh = 'true';
+      setTimeout(() => {
+        try { nextInp.select(); } catch (e) {}
+      }, 30);
+    }
+  }
+
+  // Prevent keyboard bar buttons from stealing focus from active input
+  [kbdBtnSign, kbdBtnMinus, kbdBtnDot, kbdBtnPrev, kbdBtnNext, kbdBtnDone].forEach(btn => {
+    if (!btn) return;
+    btn.addEventListener('mousedown', (e) => e.preventDefault());
+    btn.addEventListener('touchstart', (e) => e.preventDefault());
+  });
+
+  if (kbdBtnSign) kbdBtnSign.addEventListener('click', toggleActiveSign);
+  if (kbdBtnMinus) kbdBtnMinus.addEventListener('click', insertActiveMinus);
+  if (kbdBtnDot) kbdBtnDot.addEventListener('click', insertActiveDot);
+  if (kbdBtnPrev) kbdBtnPrev.addEventListener('click', () => navInput(-1));
+  if (kbdBtnNext) kbdBtnNext.addEventListener('click', () => navInput(1));
+  if (kbdBtnDone) kbdBtnDone.addEventListener('click', () => {
+    if (activeInput) activeInput.blur();
+    if (kbdBar) kbdBar.classList.add('hidden');
+  });
+
+  // Attach Focus Auto-Select, Toolbar Toggle and Enter-Key Navigation to all inputs
   const allInputs = document.querySelectorAll('input[type="number"], input[type="text"]');
   allInputs.forEach(input => {
-    // Focus event: select all text & mark fresh focus
+    // Focus event: select all text, mark fresh focus & show floating keyboard accessory bar
     input.addEventListener('focus', (e) => {
+      activeInput = e.target;
+      if (kbdBar) kbdBar.classList.remove('hidden');
+
       e.target.dataset.fresh = 'true';
       setTimeout(() => {
         try {
@@ -555,10 +644,7 @@ function bindInputEvents() {
         e.preventDefault();
         e.target.dataset.fresh = 'false';
 
-        const container = e.target.closest('.tab-page') || e.target.closest('.modal-content') || document;
-        const visibleInputs = Array.from(container.querySelectorAll('input[type="number"], input[type="text"]'))
-          .filter(inp => inp.offsetParent !== null && !inp.disabled && !inp.readOnly);
-
+        const visibleInputs = getVisibleInputs();
         const currIdx = visibleInputs.indexOf(e.target);
         if (currIdx >= 0 && currIdx < visibleInputs.length - 1) {
           const nextInp = visibleInputs[currIdx + 1];
@@ -571,6 +657,7 @@ function bindInputEvents() {
           }, 30);
         } else {
           e.target.blur();
+          if (kbdBar) kbdBar.classList.add('hidden');
         }
         return;
       }
@@ -585,6 +672,11 @@ function bindInputEvents() {
 
     input.addEventListener('blur', (e) => {
       e.target.dataset.fresh = 'false';
+      setTimeout(() => {
+        if (document.activeElement !== activeInput && (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
+          if (kbdBar) kbdBar.classList.add('hidden');
+        }
+      }, 200);
     });
   });
 
