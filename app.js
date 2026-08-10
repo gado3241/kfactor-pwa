@@ -534,6 +534,60 @@ function bindInputEvents() {
     });
   });
 
+  // Attach Focus Auto-Select and Enter-Key Navigation to all number/text inputs
+  const allInputs = document.querySelectorAll('input[type="number"], input[type="text"]');
+  allInputs.forEach(input => {
+    // Focus event: select all text & mark fresh focus
+    input.addEventListener('focus', (e) => {
+      e.target.dataset.fresh = 'true';
+      setTimeout(() => {
+        try {
+          e.target.select();
+        } catch (err) {}
+      }, 30);
+    });
+
+    // Keydown event: replace value on first keypress & navigate to next input on Enter
+    input.addEventListener('keydown', (e) => {
+      const isFresh = e.target.dataset.fresh === 'true';
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.target.dataset.fresh = 'false';
+
+        const container = e.target.closest('.tab-page') || e.target.closest('.modal-content') || document;
+        const visibleInputs = Array.from(container.querySelectorAll('input[type="number"], input[type="text"]'))
+          .filter(inp => inp.offsetParent !== null && !inp.disabled && !inp.readOnly);
+
+        const currIdx = visibleInputs.indexOf(e.target);
+        if (currIdx >= 0 && currIdx < visibleInputs.length - 1) {
+          const nextInp = visibleInputs[currIdx + 1];
+          nextInp.focus();
+          nextInp.dataset.fresh = 'true';
+          setTimeout(() => {
+            try {
+              nextInp.select();
+            } catch (err) {}
+          }, 30);
+        } else {
+          e.target.blur();
+        }
+        return;
+      }
+
+      if (isFresh && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== 'Tab') {
+        e.target.dataset.fresh = 'false';
+        e.target.value = '';
+      } else if (e.key !== 'Tab') {
+        e.target.dataset.fresh = 'false';
+      }
+    });
+
+    input.addEventListener('blur', (e) => {
+      e.target.dataset.fresh = 'false';
+    });
+  });
+
   // Unit Chips for Tab 1
   bindUnitToggle('tsUnitC', 'tsUnitF', (unit) => { state.tsUnit = unit; });
   bindUnitToggle('paUnitHpa', 'paUnitMmhg', (unit) => { state.paUnit = unit; });
@@ -595,19 +649,26 @@ function bindUnitToggle(btn1Id, btn2Id, onSelect) {
   const btn1 = document.getElementById(btn1Id);
   const btn2 = document.getElementById(btn2Id);
 
-  btn1.addEventListener('click', () => {
-    btn1.classList.add('active');
-    btn2.classList.remove('active');
-    onSelect(btn1.getAttribute('data-unit'));
-    updateUI();
-  });
+  if (btn1) btn1.setAttribute('tabindex', '-1');
+  if (btn2) btn2.setAttribute('tabindex', '-1');
 
-  btn2.addEventListener('click', () => {
-    btn2.classList.add('active');
-    btn1.classList.remove('active');
-    onSelect(btn2.getAttribute('data-unit'));
-    updateUI();
-  });
+  if (btn1) {
+    btn1.addEventListener('click', () => {
+      btn1.classList.add('active');
+      if (btn2) btn2.classList.remove('active');
+      onSelect(btn1.getAttribute('data-unit'));
+      updateUI();
+    });
+  }
+
+  if (btn2) {
+    btn2.addEventListener('click', () => {
+      btn2.classList.add('active');
+      if (btn1) btn1.classList.remove('active');
+      onSelect(btn2.getAttribute('data-unit'));
+      updateUI();
+    });
+  }
 }
 
 // Save Record Modal Logic
