@@ -880,8 +880,19 @@ function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('SW Registered:', reg.scope))
+        .then(reg => {
+          console.log('SW Registered:', reg.scope);
+          reg.update(); // check for updates on reload
+        })
         .catch(err => console.log('SW Register failed:', err));
+    });
+
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
     });
   }
 
