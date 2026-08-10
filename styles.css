@@ -1022,3 +1022,128 @@ footer {
   color: var(--text-muted);
   border-top: 1px solid var(--border);
 }
+
+/* Custom Numeric Keypad Sheet */
+.custom-keypad {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 99999;
+  background: var(--surface-card);
+  border-top: 2px solid var(--primary);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.22);
+  padding: 0.5rem 0.75rem 0.75rem 0.75rem;
+  max-width: 500px;
+  margin: 0 auto;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  animation: slideUpKeypad 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.custom-keypad.hidden {
+  display: none !important;
+}
+
+@keyframes slideUpKeypad {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.keypad-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+
+.keypad-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 75%;
+}
+
+.keypad-close-btn {
+  background: var(--surface-variant);
+  border: 1px solid var(--border);
+  color: var(--text-main);
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
+.num-key {
+  height: 48px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-variant);
+  color: var(--text-main);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: background-color 0.1s, transform 0.08s;
+}
+
+.num-key:active {
+  background: var(--border);
+  transform: scale(0.96);
+}
+
+.num-key.fn-key {
+  background: var(--surface-card);
+  color: var(--primary);
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.num-key.action-key {
+  background: #fff0f0;
+  color: #d32f2f;
+  border-color: #ffcdd2;
+  font-size: 1.1rem;
+}
+
+.num-key.nav-key {
+  background: var(--surface-card);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.num-key.next-key {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  font-size: 0.95rem;
+  font-weight: 800;
+  grid-column: span 2;
+}
+
+.num-key.next-key:active {
+  background: var(--primary-container);
+}
+

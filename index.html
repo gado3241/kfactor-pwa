@@ -525,6 +525,36 @@
     대기질 먼지측정 반자동식 계산기 PWA App | 환경부 ES 01301.1e 준수
   </footer>
 
+  <!-- Custom Numeric Keypad Sheet -->
+  <div id="customKeypad" class="custom-keypad hidden">
+    <div class="keypad-header">
+      <span class="keypad-title" id="keypadFieldLabel">숫자 입력</span>
+      <div class="keypad-actions">
+        <button type="button" class="keypad-close-btn" id="keypadDoneBtn">닫기 ✕</button>
+      </div>
+    </div>
+    <div class="keypad-grid">
+      <button type="button" class="num-key" data-key="1">1</button>
+      <button type="button" class="num-key" data-key="2">2</button>
+      <button type="button" class="num-key" data-key="3">3</button>
+      <button type="button" class="num-key action-key" data-action="backspace" title="지우기">⌫</button>
+
+      <button type="button" class="num-key" data-key="4">4</button>
+      <button type="button" class="num-key" data-key="5">5</button>
+      <button type="button" class="num-key" data-key="6">6</button>
+      <button type="button" class="num-key fn-key" data-key="-">-</button>
+
+      <button type="button" class="num-key" data-key="7">7</button>
+      <button type="button" class="num-key" data-key="8">8</button>
+      <button type="button" class="num-key" data-key="9">9</button>
+      <button type="button" class="num-key fn-key" data-key=".">.</button>
+
+      <button type="button" class="num-key" data-key="0">0</button>
+      <button type="button" class="num-key nav-key" data-action="prev">◀ 이전</button>
+      <button type="button" class="num-key next-key" data-action="next">다음 ▶</button>
+    </div>
+  </div>
+
   <script src="./app.js"></script>
 </body>
 </html>

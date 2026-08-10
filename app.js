@@ -534,20 +534,134 @@ function bindInputEvents() {
     });
   });
 
-  // Focus Auto-Select and Enter-Key Navigation for all inputs
-  const allInputs = document.querySelectorAll('input[type="number"], input[type="text"]');
-  allInputs.forEach(input => {
-    // Focus event: select all text & mark fresh focus
-    input.addEventListener('focus', (e) => {
-      e.target.dataset.fresh = 'true';
-      setTimeout(() => {
-        try {
-          e.target.select();
-        } catch (err) {}
-      }, 30);
+  // --- Custom Keypad Logic ---
+  const keypadSheet = document.getElementById('customKeypad');
+  const keypadLabel = document.getElementById('keypadFieldLabel');
+  const keypadDoneBtn = document.getElementById('keypadDoneBtn');
+  let currentActiveInput = null;
+
+  function getContainerVisibleInputs(inputEl) {
+    if (!inputEl) return [];
+    const container = inputEl.closest('.tab-page') || inputEl.closest('.modal-content') || document;
+    return Array.from(container.querySelectorAll('input[type="number"], input[type="text"]'))
+      .filter(inp => inp.offsetParent !== null && !inp.disabled && !inp.readOnly);
+  }
+
+  function openKeypadFor(inputEl) {
+    if (!inputEl) return;
+    currentActiveInput = inputEl;
+
+    // Find label
+    let labelText = '숫자 입력';
+    const fieldContainer = inputEl.closest('.input-field') || inputEl.closest('.unit-input-row');
+    if (fieldContainer) {
+      const lbl = fieldContainer.querySelector('label');
+      if (lbl) labelText = lbl.textContent.trim();
+    }
+    if (keypadLabel) keypadLabel.textContent = labelText;
+
+    if (keypadSheet) keypadSheet.classList.remove('hidden');
+
+    inputEl.dataset.fresh = 'true';
+    setTimeout(() => {
+      try { inputEl.select(); } catch (err) {}
+    }, 30);
+  }
+
+  function closeKeypad() {
+    if (keypadSheet) keypadSheet.classList.add('hidden');
+    if (currentActiveInput) {
+      currentActiveInput.blur();
+      currentActiveInput = null;
+    }
+  }
+
+  if (keypadDoneBtn) {
+    keypadDoneBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeKeypad();
+    });
+  }
+
+  // Keypad Buttons Event Delegation
+  if (keypadSheet) {
+    keypadSheet.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn || !currentActiveInput) return;
+      e.preventDefault();
+
+      const key = btn.dataset.key;
+      const action = btn.dataset.action;
+      const inp = currentActiveInput;
+      const isFresh = inp.dataset.fresh === 'true';
+
+      if (key !== undefined) {
+        // Number / Dot / Minus button pressed
+        if (isFresh) {
+          inp.value = '';
+          inp.dataset.fresh = 'false';
+        }
+
+        if (key === '.') {
+          if (!inp.value.includes('.')) {
+            inp.value += '.';
+          }
+        } else if (key === '-') {
+          if (inp.value.startsWith('-')) {
+            inp.value = inp.value.substring(1);
+          } else {
+            inp.value = '-' + inp.value;
+          }
+        } else {
+          inp.value += key;
+        }
+
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (action === 'backspace') {
+        inp.dataset.fresh = 'false';
+        inp.value = inp.value.slice(0, -1);
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (action === 'next') {
+        inp.dataset.fresh = 'false';
+        const inputs = getContainerVisibleInputs(inp);
+        const idx = inputs.indexOf(inp);
+        if (idx >= 0 && idx < inputs.length - 1) {
+          const nextInp = inputs[idx + 1];
+          nextInp.focus();
+          openKeypadFor(nextInp);
+        } else {
+          closeKeypad();
+        }
+      } else if (action === 'prev') {
+        inp.dataset.fresh = 'false';
+        const inputs = getContainerVisibleInputs(inp);
+        const idx = inputs.indexOf(inp);
+        if (idx > 0) {
+          const prevInp = inputs[idx - 1];
+          prevInp.focus();
+          openKeypadFor(prevInp);
+        }
+      }
     });
 
-    // Keydown event: replace value on first keypress & navigate to next input on Enter
+    // Prevent keypad buttons from losing focus on input
+    keypadSheet.addEventListener('mousedown', (e) => e.preventDefault());
+    keypadSheet.addEventListener('touchstart', (e) => e.preventDefault());
+  }
+
+  // Focus Auto-Select, Custom Keypad Trigger, and Enter-Key Navigation for all inputs
+  const allInputs = document.querySelectorAll('input[type="number"], input[type="text"]');
+  allInputs.forEach(input => {
+    // Focus/Click event: open custom keypad & select all text
+    input.addEventListener('focus', (e) => {
+      openKeypadFor(e.target);
+    });
+
+    input.addEventListener('click', (e) => {
+      openKeypadFor(e.target);
+    });
+
+    // Keydown event: replace value on first physical keypress & navigate to next input on Enter
     input.addEventListener('keydown', (e) => {
       const isFresh = e.target.dataset.fresh === 'true';
 
@@ -555,22 +669,14 @@ function bindInputEvents() {
         e.preventDefault();
         e.target.dataset.fresh = 'false';
 
-        const container = e.target.closest('.tab-page') || e.target.closest('.modal-content') || document;
-        const visibleInputs = Array.from(container.querySelectorAll('input[type="number"], input[type="text"]'))
-          .filter(inp => inp.offsetParent !== null && !inp.disabled && !inp.readOnly);
-
-        const currIdx = visibleInputs.indexOf(e.target);
-        if (currIdx >= 0 && currIdx < visibleInputs.length - 1) {
-          const nextInp = visibleInputs[currIdx + 1];
+        const inputs = getContainerVisibleInputs(e.target);
+        const currIdx = inputs.indexOf(e.target);
+        if (currIdx >= 0 && currIdx < inputs.length - 1) {
+          const nextInp = inputs[currIdx + 1];
           nextInp.focus();
-          nextInp.dataset.fresh = 'true';
-          setTimeout(() => {
-            try {
-              nextInp.select();
-            } catch (err) {}
-          }, 30);
+          openKeypadFor(nextInp);
         } else {
-          e.target.blur();
+          closeKeypad();
         }
         return;
       }
@@ -585,6 +691,14 @@ function bindInputEvents() {
 
     input.addEventListener('blur', (e) => {
       e.target.dataset.fresh = 'false';
+      // Close keypad if blur was caused by clicking outside inputs and keypad
+      setTimeout(() => {
+        if (document.activeElement !== currentActiveInput && 
+            (!document.activeElement || !document.activeElement.closest('#customKeypad')) &&
+            (!document.activeElement || document.activeElement.tagName !== 'INPUT')) {
+          closeKeypad();
+        }
+      }, 150);
     });
   });
 
