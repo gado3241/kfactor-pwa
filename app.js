@@ -111,9 +111,11 @@ function runCalculationEngine() {
   const paInmmHgExact = state.paUnit === 'MMHG' ? state.paVal : (state.paVal * 760.0 / 1013.0);
   const paInmmHg = excelRound(paInmmHgExact, 2);
 
-  const psInInH2O = state.psUnit === 'INH2O' ? excelRound(state.psVal, 1) : excelRound(state.psVal / 25.4, 1);
-  const psInmmH2O = state.psUnit === 'MMH2O' ? excelRound(state.psVal, 1) : excelRound(state.psVal * 25.4, 1);
-  const psInmmHgExact = state.psUnit === 'MMH2O' ? (state.psVal / 13.6) : (state.psVal * 25.4 / 13.6);
+  const numPsVal = typeof state.psVal === 'number' ? state.psVal : (parseFloat(state.psVal) || 0.0);
+
+  const psInInH2O = state.psUnit === 'INH2O' ? excelRound(numPsVal, 1) : excelRound(numPsVal / 25.4, 1);
+  const psInmmH2O = state.psUnit === 'MMH2O' ? excelRound(numPsVal, 1) : excelRound(numPsVal * 25.4, 1);
+  const psInmmHgExact = state.psUnit === 'MMH2O' ? (numPsVal / 13.6) : (numPsVal * 25.4 / 13.6);
   const psInmmHg = excelRound(psInmmHgExact, 1);
 
   const hInInH2O = state.hUnit === 'INH2O' ? state.hVal : (state.hVal / 25.4);
@@ -525,6 +527,13 @@ function bindInputEvents() {
       const raw = e.target.value;
       if (id === 'gtmVal' || id === 'gvmVal' || id === 'maVal') {
         state[id] = raw;
+      } else if (id === 'psVal') {
+        if (raw === '' || raw === '-') {
+          state[id] = raw;
+        } else {
+          const parsed = parseFloat(raw);
+          state[id] = isNaN(parsed) ? 0.0 : parsed;
+        }
       } else {
         state[id] = (raw !== '' && raw !== '-' && !isNaN(parseFloat(raw))) ? parseFloat(raw) : 0.0;
       }
@@ -539,18 +548,34 @@ function bindInputEvents() {
   const psSignBtn = document.getElementById('psSignBtn');
   const psInput = document.getElementById('psVal');
   if (psSignBtn && psInput) {
-    psSignBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+    let lastToggleTime = 0;
+    const handleSignToggle = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const now = Date.now();
+      if (now - lastToggleTime < 150) return;
+      lastToggleTime = now;
+
       let val = psInput.value.trim();
-      if (val.startsWith('-')) {
+      if (val === '' || val === '0' || val === '0.0') {
+        psInput.value = '-';
+      } else if (val.startsWith('-')) {
         psInput.value = val.substring(1);
       } else {
         psInput.value = '-' + val;
       }
+
+      const parsed = parseFloat(psInput.value);
+      state.psVal = isNaN(parsed) ? (psInput.value === '-' ? '-' : 0.0) : parsed;
+
       psInput.dispatchEvent(new Event('input', { bubbles: true }));
       psInput.focus();
-    });
+    };
+
+    psSignBtn.addEventListener('click', handleSignToggle);
+    psSignBtn.addEventListener('touchstart', handleSignToggle, { passive: false });
   }
 
   // Focus Auto-Select and Enter-Key Navigation for all inputs
