@@ -535,6 +535,38 @@ function bindInputEvents() {
     });
   });
 
+  // Attach ± sign toggle button to inputs with decimal inputmode
+  document.querySelectorAll('input[inputmode="decimal"]').forEach(input => {
+    if (input.parentElement && !input.parentElement.classList.contains('input-with-sign')) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'input-with-sign';
+      input.parentNode.insertBefore(wrapper, input);
+      wrapper.appendChild(input);
+
+      const signBtn = document.createElement('button');
+      signBtn.type = 'button';
+      signBtn.className = 'sign-btn';
+      signBtn.textContent = '±';
+      signBtn.title = '양수/음수 전환 (+/-)';
+      signBtn.tabIndex = -1;
+
+      signBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        let val = input.value.trim();
+        if (val.startsWith('-')) {
+          input.value = val.substring(1);
+        } else {
+          input.value = '-' + val;
+        }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
+      });
+
+      wrapper.appendChild(signBtn);
+    }
+  });
+
   // Focus Auto-Select and Enter-Key Navigation for all inputs
   const allInputs = document.querySelectorAll('input[type="number"], input[type="text"]');
   allInputs.forEach(input => {
