@@ -111,8 +111,9 @@ function runCalculationEngine() {
   const paInmmHgExact = state.paUnit === 'MMHG' ? state.paVal : (state.paVal * 760.0 / 1013.0);
   const paInmmHg = excelRound(paInmmHgExact, 2);
 
-  const psInInH2O = state.psUnit === 'INH2O' ? excelRound(state.psVal, 1) : excelRound(state.psVal * 13.6 / 25.4, 1);
-  const psInmmHgExact = state.psUnit === 'MMHG' ? state.psVal : (state.psVal * 25.4 / 13.6);
+  const psInInH2O = state.psUnit === 'INH2O' ? excelRound(state.psVal, 1) : excelRound(state.psVal / 25.4, 1);
+  const psInmmH2O = state.psUnit === 'MMH2O' ? excelRound(state.psVal, 1) : excelRound(state.psVal * 25.4, 1);
+  const psInmmHgExact = state.psUnit === 'MMH2O' ? (state.psVal / 13.6) : (state.psVal * 25.4 / 13.6);
   const psInmmHg = excelRound(psInmmHgExact, 1);
 
   const hInInH2O = state.hUnit === 'INH2O' ? state.hVal : (state.hVal / 25.4);
@@ -190,7 +191,7 @@ function runCalculationEngine() {
   const vm0 = (273.0 + tmInC) !== 0 ? excelRound(actualVmLiter * 273.0 / (273.0 + tmInC) * (paInmmHg + deltaHInmmHg) / 760.0, 2) : 0.0;
 
   state.results = {
-    tsInC, tsInF, tmInC, tmInF, paInmmHg, paInhPa, psInInH2O, psInmmHg, hInInH2O, hInmmH2O,
+    tsInC, tsInF, tmInC, tmInF, paInmmHg, paInhPa, psInInH2O, psInmmH2O, psInmmHg, hInInH2O, hInmmH2O,
     o2Avg: excelRound(o2Avg, 2),
     co2Avg: excelRound(co2Avg, 2),
     md, vmFt3, vmLiter, actualVmLiter, kf,
@@ -377,7 +378,7 @@ function updateUI() {
   // 2. Unit conversion displays
   document.getElementById('tsConvertedText').textContent = state.tsUnit === 'C' ? `${excelRound(res.tsInF, 1)} °F` : `${excelRound(res.tsInC, 1)} °C`;
   document.getElementById('paConvertedText').textContent = state.paUnit === 'HPA' ? `${excelRound(res.paInmmHg, 2)} mmHg` : `${excelRound(res.paInhPa, 1)} hPa`;
-  document.getElementById('psConvertedText').textContent = state.psUnit === 'INH2O' ? `${excelRound(res.psInmmHg, 1)} mmHg` : `${excelRound(res.psInInH2O, 1)} inH₂O`;
+  document.getElementById('psConvertedText').textContent = state.psUnit === 'INH2O' ? `${excelRound(res.psInmmH2O, 1)} mmH₂O` : `${excelRound(res.psInInH2O, 3)} inH₂O`;
   document.getElementById('hConvertedText').textContent = state.hUnit === 'INH2O' ? `${excelRound(res.hInmmH2O, 1)} mmH₂O` : `${excelRound(res.hInInH2O, 3)} inH₂O`;
   document.getElementById('tmConvertedText').textContent = state.tmUnit === 'C' ? `${excelRound(res.tmInF, 1)} °F` : `${excelRound(res.tmInC, 1)} °C`;
 
@@ -591,7 +592,7 @@ function bindInputEvents() {
   // Unit Chips for Tab 1
   bindUnitToggle('tsUnitC', 'tsUnitF', (unit) => { state.tsUnit = unit; });
   bindUnitToggle('paUnitHpa', 'paUnitMmhg', (unit) => { state.paUnit = unit; });
-  bindUnitToggle('psUnitInH2O', 'psUnitMmhg', (unit) => { state.psUnit = unit; });
+  bindUnitToggle('psUnitInH2O', 'psUnitMmH2O', (unit) => { state.psUnit = unit; });
   bindUnitToggle('hUnitInH2O', 'hUnitMmH2O', (unit) => { state.hUnit = unit; });
   bindUnitToggle('tmUnitC', 'tmUnitF', (unit) => { state.tmUnit = unit; });
   bindUnitToggle('vmUnitLiter', 'vmUnitFt3', (unit) => {
