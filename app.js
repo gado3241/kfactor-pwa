@@ -116,7 +116,7 @@ function runCalculationEngine() {
   const psInInH2O = state.psUnit === 'INH2O' ? excelRound(numPsVal, 1) : excelRound(numPsVal / 25.4, 1);
   const psInmmH2O = state.psUnit === 'MMH2O' ? excelRound(numPsVal, 1) : excelRound(numPsVal * 25.4, 1);
   const psInmmHgExact = state.psUnit === 'MMH2O' ? (numPsVal / 13.6) : (numPsVal * 25.4 / 13.6);
-  const psInmmHg = excelRound(psInmmHgExact, 1);
+  const psInmmHg = excelRound(psInmmHgExact, 2); // 기록지: Ps(mmHg) 소수 2자리
 
   const hInInH2O = state.hUnit === 'INH2O' ? state.hVal : (state.hVal / 25.4);
   const hInmmH2O = state.hUnit === 'MMH2O' ? state.hVal : (state.hVal * 25.4);
@@ -124,7 +124,7 @@ function runCalculationEngine() {
   // 2. Average gas composition & Md
   const o2Avg = (state.o2_1 + state.o2_2 + state.o2_3) / 3.0;
   const co2Avg = (state.co2_1 + state.co2_2 + state.co2_3) / 3.0;
-  const md = excelRound(0.44 * co2Avg + 0.32 * o2Avg + 0.28 * (100.0 - o2Avg - co2Avg), 3);
+  const md = 0.44 * co2Avg + 0.32 * o2Avg + 0.28 * (100.0 - o2Avg - co2Avg);
 
   const kPb = paInmmHg / 25.4;
   const kPs = kPb + (psInInH2O / 13.6);
@@ -164,7 +164,7 @@ function runCalculationEngine() {
   // 5. ΔH calculation
   const deltaHInmmH2O = excelRound(hInmmH2O * kf, 1);
   const deltaHInInH2O = excelRound(hInInH2O * kf, 3);
-  const deltaHInmmHg = deltaHInmmH2O / 13.6;
+  const deltaHInmmHg = excelRound(hInmmH2O * kf / 13.6, 2); // 기록지: ΔH(mmHg) 소수 2자리
 
   // Vic & An
   const vic = excelRound(actualVmLiter * state.xw / (100.0 - state.xw) * (18.0 / 22.4), 2);
@@ -185,7 +185,7 @@ function runCalculationEngine() {
 
   // 6. Isokinetic % (I)
   const iNumerator = (273.0 + tsInC) * 16670.0 * ((0.00346 * vic) + (actualVmLiter / 1000.0) * (paInmmHg + deltaHInmmHg) / (273.0 + tmInC));
-  const iDenominator = state.time * vs * (760.0 + psInmmHg) * an;
+  const iDenominator = state.time * vs * (paInmmHg + psInmmHg) * an;
   const isokineticPercent = iDenominator !== 0 ? excelRound(iNumerator / iDenominator, 1) : 0.0;
   const isIsokineticValid = isokineticPercent >= 90.0 && isokineticPercent <= 110.0;
 
@@ -196,7 +196,7 @@ function runCalculationEngine() {
     tsInC, tsInF, tmInC, tmInF, paInmmHg, paInhPa, psInInH2O, psInmmH2O, psInmmHg, hInInH2O, hInmmH2O,
     o2Avg: excelRound(o2Avg, 2),
     co2Avg: excelRound(co2Avg, 2),
-    md, vmFt3, vmLiter, actualVmLiter, kf,
+    md: excelRound(md, 3), vmFt3, vmLiter, actualVmLiter, kf,
     deltaH: deltaHInmmH2O, deltaHInInH2O, deltaHInmmHg: excelRound(deltaHInmmHg, 2),
     isokineticPercent, isIsokineticValid,
     rho0, rho, vs, ductAreaA, qa, qs, q, isO2CorrectionApplied, vic, an, vm0
